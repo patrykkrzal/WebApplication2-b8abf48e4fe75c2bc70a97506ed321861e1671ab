@@ -1,0 +1,73 @@
+﻿﻿
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8" />
+    <title>Kontakt</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/site.css" rel="stylesheet">
+</head>
+<body>
+    <div class="buttons-top-right">
+        <button class="winter-button" type="button" data-nav="Index.html">❆ Menu</button>
+        <button class="winter-button" type="button" data-nav="Equipment.html">⛷️ Sprzęt</button>
+        <details class="user-panel disabled">
+            <summary class="winter-button" aria-label="Panel użytkownika">👤 Panel użytkownika</summary>
+            <div class="user-panel-menu">
+                <button class="winter-button" type="button" data-nav="OrderHistory.html" data-show-when-auth="true">Historia zamówień</button>
+                <button class="winter-button" type="button" data-nav="UserData.html" data-show-when-auth="true">Dane użytkownika</button>
+                <button class="winter-button" type="button" data-nav="WorkerPanel.html" data-required-roles="worker, admin">Panel pracownika</button>
+                <button class="winter-button" type="button" data-nav="AdminPanel.html" data-required-roles="admin">Panel administratora</button>
+            </div>
+        </details>
+        <button class="winter-button" type="button" data-nav="Kontakt.html">📞 Kontakt</button>
+        <button class="winter-button" type="button" data-nav="Basket.html">🛒 Koszyk</button>
+        <button class="winter-button" type="button" data-logout="true" data-show-when-auth="true">🚪 Wyloguj</button>
+        <button class="winter-button" type="button" data-nav="Login.html" data-hide-when-auth="true">🔒 Logowanie</button>
+    </div>
+    <div class="content-section">
+        <div class="frost-effect">
+            <h1 class="winter-title">Kontakt</h1>
+            <div id="contactInfo" class="contact-info">
+                <p>Ładowanie danych kontaktowych...</p>
+            </div>
+        </div>
+    </div>
+    <script src="/js/site.js" defer></script>
+    <script>
+        function fmtSpan(ts) {
+            // accept "HH:MM:SS" or TimeSpan JSON like "HH:MM:SS"
+            if (!ts) return '-';
+            var parts = String(ts).split(':');
+            if (parts.length >= 2) { return parts[0].padStart(2, '0') + ':' + parts[1].padStart(2, '0'); }
+            return String(ts);
+        }
+        async function loadContact() {
+            try {
+                const res = await fetch('/api/rentalinfo', { credentials: 'include' });
+                if (!res.ok) throw new Error('Nie udało się pobrać danych kontaktowych');
+                const list = await res.json();
+                const info = Array.isArray(list) && list.length ? list[0] : null;
+                const el = document.getElementById('contactInfo');
+                if (!info) { el.innerHTML = '<p>Brak danych wypożyczalni.</p>'; return; }
+                const address = info.address ?? info.Address;
+                const phone = info.phoneNumber ?? info.PhoneNumber;
+                const email = info.email ?? info.Email;
+                const open = fmtSpan(info.openHour ?? info.OpenHour);
+                const close = fmtSpan(info.closeHour ?? info.CloseHour);
+                const days = info.openDays ?? info.OpenDays;
+                el.innerHTML = `
+         <div class="contact-item">📍 <strong>Adres</strong><div class="contact-value">${address || '-'}</div></div>
+         <div class="contact-item">📞 <strong>Telefon</strong><div class="contact-value">${phone || '-'}</div></div>
+         <div class="contact-item">✉️ <strong>Email</strong><div class="contact-value">${email || '-'}</div></div>
+         <div class="contact-item">⏰ <strong>Godziny pracy</strong><div class="contact-value">${open || '-'} — ${close || '-'}</div></div>
+         <div class="contact-item">📅 <strong>Dni otwarcia</strong><div class="contact-value">${days || '-'}</div></div>`;
+            } catch (err) {
+                document.getElementById('contactInfo').innerHTML = '<p class="error">' + (err.message || 'Błąd pobierania danych') + '</p>';
+            }
+        }
+        loadContact();
+    </script>
+</body>
+</html>

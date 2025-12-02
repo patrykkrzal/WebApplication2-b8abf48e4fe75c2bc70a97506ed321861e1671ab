@@ -1,0 +1,303 @@
+﻿<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="utf-8" />
+    <title>Dodaj / Usuń sprzęt</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/site.css" rel="stylesheet">
+
+    <style>
+        .dual-actions {
+            display: flex;
+            gap: .75rem;
+            align-items: center;
+        }
+
+            .dual-actions button {
+                flex: 1;
+            }
+    </style>
+</head>
+
+<body>
+    <div class="buttons-top-right">
+        <button class="winter-button" type="button" data-nav="Index.html">❆ Menu</button>
+        <button class="winter-button" type="button" data-nav="Equipment.html">⛷️ Sprzęt</button>
+
+        <details class="user-panel disabled">
+            <summary class="winter-button" aria-label="Panel użytkownika">👤 Panel użytkownika</summary>
+            <div class="user-panel-menu">
+                <button class="winter-button" type="button" data-nav="OrderHistory.html" data-show-when-auth="true">Historia zamówień</button>
+                <button class="winter-button" type="button" data-nav="UserData.html" data-show-when-auth="true">Dane użytkownika</button>
+                <button class="winter-button" type="button" data-nav="WorkerPanel.html" data-required-roles="worker, admin">Panel pracownika</button>
+                <button class="winter-button" type="button" data-nav="AdminPanel.html" data-required-roles="admin">Panel administratora</button>
+                <button class="winter-button" type="button" data-nav="AddOrDeleteItem.html" data-required-roles="worker, admin">Dodaj sprzęt</button>
+            </div>
+        </details>
+
+        <button class="winter-button" type="button" data-nav="Kontakt.html">📞 Kontakt</button>
+        <button class="winter-button" type="button" data-nav="Basket.html">🛒 Koszyk</button>
+        <button class="winter-button" type="button" data-logout="true" data-show-when-auth="true">🚪 Wyloguj</button>
+        <button class="winter-button" type="button" data-nav="Login.html" data-hide-when-auth="true">🔒 Logowanie</button>
+    </div>
+
+    <div class="content-section">
+        <div class="frost-effect">
+            <h1 class="winter-title">Zarządzanie sprzętem</h1>
+            <p class="mb-3">Dodaj lub usuń pojedynczą pozycję. Dostęp tylko dla ról Admin lub Pracownik.</p>
+
+            <div id="roleGuard" class="alert alert-warning" style="display:none">
+                Brak uprawnień. Ta strona jest dostępna tylko dla użytkowników z rolą Admin lub Worker.
+            </div>
+
+            <!-- składany panel jak user-panel -->
+            <details class="user-panel" id="addPanel" open>
+                <summary class="winter-button" aria-label="Dodaj sprzęt">➕ / ❌ Sprzęt</summary>
+
+                <form id="addItemForm" class="form-box" novalidate style="display:none">
+                    <div class="mb-3">
+                        <label for="type">Rodzaj sprzętu</label>
+                        <select id="type" name="Type" class="form-select" required>
+                            <option value="">-- wybierz --</option>
+                            <option value="Skis">Narty</option>
+                            <option value="Helmet">Kask</option>
+                            <option value="Gloves">Rękawice</option>
+                            <option value="Poles">Kijki</option>
+                            <option value="Snowboard">Snowboard</option>
+                            <option value="Goggles">Gogle</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="size">Rozmiar</label>
+                        <select id="size" name="Size" class="form-select" required disabled>
+                            <option value="">Najpierw wybierz typ</option>
+                        </select>
+                        <div id="sizeHint" class="form-text">
+                            Dostępne rozmiary zależą od wybranego typu i stanu magazynowego.
+                        </div>
+                    </div>
+
+                    <div class="dual-actions">
+                        <button type="submit" class="submit-btn" id="btnAdd">Dodaj</button>
+                        <button type="button" class="submit-btn" id="btnDelete" style="background:#aa3333">Usuń</button>
+                    </div>
+
+                    <div id="msg" class="msg"></div>
+                </form>
+            </details>
+        </div>
+    </div>
+
+    <script>
+        const apiBase = '';
+
+        function toDto() {
+            const type = document.getElementById('type').value;
+            const size = document.getElementById('size').value;
+            return { Type: type, Size: size };
+        }
+
+        async function postJson(url, body) {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+                credentials: 'include'
+            });
+
+            let text = await res.text();
+            try { text = JSON.parse(text); } catch { }
+
+            if (!res.ok)
+                throw (typeof text === 'string' ? new Error(text) : new Error(JSON.stringify(text)));
+
+            return text;
+        }
+
+        async function deleteJson(url, body) {
+            const res = await fetch(url, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+                credentials: 'include'
+            });
+
+            let text = await res.text();
+            try { text = JSON.parse(text); } catch { }
+
+            if (!res.ok)
+                throw (typeof text === 'string' ? new Error(text) : new Error(JSON.stringify(text)));
+
+            return text;
+        }
+
+        async function getMe() {
+            let res = await fetch(`${apiBase}/api/Auth/me`, { credentials: 'include' });
+            if (!res.ok) res = await fetch('/api/users/me', { credentials: 'include' });
+            if (!res.ok) return null;
+
+            try { return await res.json(); }
+            catch { return null; }
+        }
+
+        async function getAvailability() {
+            try {
+                const res = await fetch(`${apiBase}/api/equipment/availability`, { credentials: 'include' });
+                if (!res.ok) return [];
+                return await res.json();
+            } catch { return []; }
+        }
+
+        let availabilityByType = {};
+
+        function buildAvailabilityMap(items) {
+            availabilityByType = {};
+            items.forEach(x => {
+                const t = String(x.Type || '').trim();
+                const s = String(x.Size || '').trim();
+                if (!t || !s) return;
+
+                (availabilityByType[t] ||= new Set()).add(s);
+            });
+        }
+
+        function tSize(sz) {
+            const m = {
+                Small: 'Mały',
+                Medium: 'Średni',
+                Large: 'Duży',
+                Universal: 'Uniwersalny'
+            };
+            return m[sz] || sz;
+        }
+
+        function populateSizesForType(type) {
+            const sizeSelect = document.getElementById('size');
+            sizeSelect.innerHTML = '';
+
+            const sizes = availabilityByType[type]
+                ? Array.from(availabilityByType[type])
+                : [];
+
+            if (sizes.length === 0) {
+                const fallback = {
+                    Skis: ['Small', 'Medium', 'Large'],
+                    Snowboard: ['Small', 'Medium', 'Large'],
+                    Poles: ['Small', 'Medium', 'Large'],
+                    Helmet: ['Small', 'Medium', 'Large'],
+                    Gloves: ['Small', 'Medium', 'Large'],
+                    Goggles: ['Universal']
+                };
+
+                (fallback[type] || ['Small', 'Medium', 'Large'])
+                    .forEach(sz => {
+                        const opt = document.createElement('option');
+                        opt.value = sz;
+                        opt.textContent = tSize(sz);
+                        sizeSelect.appendChild(opt);
+                    });
+            } else {
+                sizes.forEach(sz => {
+                    const opt = document.createElement('option');
+                    opt.value = sz;
+                    opt.textContent = tSize(sz);
+                    sizeSelect.appendChild(opt);
+                });
+            }
+
+            sizeSelect.disabled = false;
+        }
+
+        async function ensureRoles() {
+            const me = await getMe();
+            const guard = document.getElementById('roleGuard');
+            const form = document.getElementById('addItemForm');
+
+            const hasAccess =
+                me &&
+                (Array.isArray(me.Roles) || Array.isArray(me.roles)) &&
+                (me.Roles || me.roles).some(r => ['Admin', 'Worker'].includes(r));
+
+            if (!hasAccess) {
+                guard.style.display = 'block';
+                form.style.display = 'none';
+                document.getElementById('addPanel').classList.add('disabled');
+            } else {
+                guard.style.display = 'none';
+                form.style.display = 'block';
+                document.getElementById('addPanel').classList.remove('disabled');
+            }
+        }
+
+        document.getElementById('type').addEventListener('change', e => {
+            const type = e.target.value;
+            const sizeSelect = document.getElementById('size');
+
+            if (!type) {
+                sizeSelect.innerHTML = '<option value="">Najpierw wybierz typ</option>';
+                sizeSelect.disabled = true;
+                return;
+            }
+
+            populateSizesForType(type);
+        });
+
+        document.getElementById('addItemForm').addEventListener('submit', async e => {
+            e.preventDefault();
+
+            const msg = document.getElementById('msg');
+            msg.className = 'msg';
+            msg.textContent = 'Dodawanie...';
+
+            try {
+                const dto = toDto();
+                const result = await postJson(`${apiBase}/api/equipment/add`, dto);
+
+                msg.className = 'msg success';
+                msg.textContent =
+                    `Dodano: ${result.Type ?? dto.Type} ${result.Size ?? dto.Size}. Cena: ${result.Price}`;
+
+                e.target.reset();
+                document.getElementById('size').disabled = true;
+                document.getElementById('size').innerHTML =
+                    '<option value="">Najpierw wybierz typ</option>';
+            } catch (err) {
+                msg.className = 'msg error';
+                msg.textContent = 'Błąd: ' + err.message;
+            }
+        });
+
+        document.getElementById('btnDelete').addEventListener('click', async () => {
+            const msg = document.getElementById('msg');
+            msg.className = 'msg';
+            msg.textContent = 'Usuwanie...';
+
+            try {
+                const dto = toDto();
+                if (!dto.Type || !dto.Size)
+                    throw new Error('Wybierz typ i rozmiar');
+
+                const result = await deleteJson(`${apiBase}/api/equipment/delete`, dto);
+
+                msg.className = 'msg success';
+                msg.textContent =
+                    `Usunięto: ${dto.Type} ${dto.Size}. Pozostało: ${result.Remaining}`;
+            } catch (err) {
+                msg.className = 'msg error';
+                msg.textContent = 'Błąd usuwania: ' + err.message;
+            }
+        });
+
+        (async function init() {
+            await ensureRoles();
+            const items = await getAvailability();
+            buildAvailabilityMap(items);
+        })();
+    </script>
+
+    <script src="/js/site.js" defer></script>
+</body>
+</html>

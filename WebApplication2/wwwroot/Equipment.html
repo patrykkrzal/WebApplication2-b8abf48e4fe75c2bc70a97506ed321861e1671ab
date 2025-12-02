@@ -1,0 +1,446 @@
+﻿<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="utf-8" />
+    <title>Sprzęt</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/site.css" rel="stylesheet">
+    <style>
+        :root {
+            --glass-bg: rgba(0,0,0,.55);
+            --accent: #4dabff;
+        }
+
+        .equipment-slider {
+            position: relative;
+        }
+
+        .slide-viewport {
+            overflow: hidden;
+        }
+
+        .slide {
+            position: relative;
+            display: inline-block;
+            width: 33.3333%;
+            text-align: center;
+            transition: transform .35s ease, opacity .35s;
+            opacity: .45;
+        }
+
+            .slide img {
+                width: 100%;
+                height: 340px;
+                object-fit: cover;
+                border-radius: 18px;
+                transition: filter .35s ease, outline-color .35s;
+            }
+
+            .slide.active {
+                opacity: 1;
+                transform: scale(1.08);
+                z-index: 3;
+            }
+
+            .slide.neighbor {
+                opacity: .75;
+            }
+
+            .slide.blank img {
+                opacity: 0;
+                pointer-events: none;
+            }
+
+            .slide.blank .slide-caption {
+                display: none;
+            }
+
+        .slide-caption {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%,-50%);
+            padding: .55rem1rem;
+            background: linear-gradient(135deg, rgba(0,0,0,.65), rgba(0,0,0,.35));
+            color: #fff;
+            border: 1px solid rgba(255,255,255,.25);
+            box-shadow: 04px12px rgba(0,0,0,.4);
+            border-radius: 14px;
+            font-size: 1.05rem;
+            letter-spacing: .5px;
+            backdrop-filter: blur(6px);
+            min-width: 60%;
+        }
+
+        .slide.active .slide-caption {
+            border-color: var(--accent);
+            box-shadow: 0012px var(--accent),06px18px rgba(0,0,0,.5);
+        }
+
+        .slide.active img {
+            outline: 3px solid var(--accent);
+            filter: brightness(1.05);
+        }
+
+        .active .overlay-controls {
+            display: block;
+        }
+
+        .overlay-controls {
+            display: none;
+            position: absolute;
+            left: 50%;
+            bottom: 14px;
+            transform: translateX(-50%);
+            width: 86%;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px) saturate(130%);
+            color: #fff;
+            padding: .75rem .85rem .9rem;
+            border-radius: 16px;
+            font-size: .85rem;
+            border: 1px solid rgba(255,255,255,.2);
+            box-shadow: 08px20px rgba(0,0,0,.45);
+        }
+
+        .overlay-top {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .65rem;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+            .overlay-top select {
+                flex: 11170px;
+                min-width: 160px;
+                background: rgba(255,255,255,.12);
+                color: #fff;
+                border: 1px solid rgba(255,255,255,.3);
+                border-radius: 10px;
+                padding: .45rem .6rem;
+                font-size: .85rem;
+                backdrop-filter: blur(4px);
+            }
+
+                .overlay-top select option {
+                    background: #1e1e1e;
+                }
+
+        .qty-box {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+        }
+
+            .qty-box button {
+                width: 40px;
+                height: 40px;
+                font-size: 1.3rem;
+                line-height: 1;
+                padding: 0;
+                border-radius: 50%;
+                border: 1px solid rgba(255,255,255,.3);
+                background: rgba(255,255,255,.15);
+                color: #fff;
+                transition: background .25s, transform .25s;
+            }
+
+                .qty-box button:hover {
+                    background: var(--accent);
+                    transform: scale(1.08);
+                }
+
+        .qty-number {
+            min-width: 40px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 1.05rem;
+        }
+
+        .price-line {
+            font-weight: 600;
+            font-size: .95rem;
+        }
+
+        .add-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .9rem;
+            margin-top: .55rem;
+        }
+
+            .add-row button {
+                flex: 00 auto;
+                background: var(--accent);
+                color: #00324f;
+                font-weight: 600;
+                border: none;
+                border-radius: 12px;
+                padding: .55rem1.1rem;
+                transition: filter .25s, transform .25s;
+            }
+
+                .add-row button:hover {
+                    filter: brightness(1.15);
+                    transform: translateY(-2px);
+                }
+
+        .add-info {
+            font-size: .7rem;
+            margin-top: .4rem;
+            display: none;
+            text-align: right;
+            opacity: .85;
+        }
+
+        .added-flash {
+            animation: flash .9s ease-in-out;
+        }
+
+        @keyframes flash {
+            0% {
+                color: #fff;
+            }
+
+            50% {
+                color: var(--accent);
+            }
+
+            100% {
+                color: #fff;
+            }
+        }
+
+        @media (max-width:900px) {
+            .slide img {
+                height: 300px;
+            }
+        }
+
+        @media (max-width:700px) {
+            .slide img {
+                height: 240px;
+            }
+
+            .overlay-controls {
+                font-size: .8rem;
+            }
+
+            .slide-caption {
+                font-size: .95rem;
+                min-width: 75%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="buttons-top-right">
+        <button class="winter-button" type="button" data-nav="Index.html">❆ Menu</button>
+        <button class="winter-button" type="button" data-nav="Equipment.html">⛷️ Sprzęt</button>
+        <details class="user-panel disabled">
+            <summary class="winter-button" aria-label="Panel użytkownika">👤 Panel użytkownika</summary>
+            <div class="user-panel-menu">
+                <button class="winter-button" type="button" data-nav="OrderHistory.html" data-show-when-auth="true">Historia zamówień</button>
+                <button class="winter-button" type="button" data-nav="UserData.html" data-show-when-auth="true">Dane użytkownika</button>
+                <button class="winter-button" type="button" data-nav="WorkerPanel.html" data-required-roles="worker, admin">Panel pracownika</button>
+                <button class="winter-button" type="button" data-nav="AdminPanel.html" data-required-roles="admin">Panel administratora</button>
+                <button class="winter-button" type="button" data-nav="AddOrDeleteItem.html" data-required-roles="worker, admin">Dodaj Sprzęt</button>
+            </div>
+        </details>
+        <button class="winter-button" type="button" data-nav="Kontakt.html">📞 Kontakt</button>
+        <button class="winter-button" type="button" data-nav="Basket.html">🛒 Koszyk</button>
+        <button class="winter-button" type="button" data-nav="Login.html" data-hide-when-auth="true">🔒 Logowanie</button>
+        <button class="winter-button" type="button" data-logout="true" data-show-when-auth="true">🚪 Wyloguj</button>
+    </div>
+
+    <div class="content-section">
+        <div class="frost-effect">
+            <h1 class="winter-title">Sprzęt</h1>
+            <div class="equipment-slider">
+                <button class="winter-button slider-nav" id="prevSlide">◀</button>
+                <div class="slide-viewport">
+                    <div class="slide-track" id="slideTrack"></div>
+                </div>
+                <button class="winter-button slider-nav" id="nextSlide">▶</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/site.js" defer></script>
+    <script>
+        const equipmentSlides = [
+            { type: 'blank', img: '/Images/snowboard-113784.jpg' },
+            { type: 'Snowboard', img: '/Images/snowboard-113784.jpg' },
+            { type: 'Gloves', img: '/Images/ski-glove-6933354.jpg' },
+            { type: 'Poles', img: '/Images/ski-poles-252250.jpg' },
+            { type: 'Helmet', img: '/Images/helmet-5992804.jpg' },
+            { type: 'Skis', img: '/Images/ski-999705.jpg' },
+            { type: 'Goggles', img: '/Images/googles-2093046.jpg' },
+            { type: 'blank', img: '/Images/googles-2093046.jpg' }
+        ];
+        let centerIndex = 1;
+        let equipmentData = [];
+        let groupedTypeSize = {};
+        const typeNameMap = { 0: 'Snowboard', 1: 'Gloves', 2: 'Poles', 3: 'Helmet', 4: 'Skis', 5: 'Goggles' };
+        const sizeNameMap = { 0: 'Universal', 1: 'Small', 2: 'Medium', 3: 'Large', 4: 'Xl' };
+        function normalizeType(val) {
+            const s = (val === undefined || val === null) ? '' : String(val);
+            if (s === '') return '';
+            if (typeNameMap[s] === undefined && Object.values(typeNameMap).includes(s)) return s;
+            const n = parseInt(s);
+            return Number.isFinite(n) && typeNameMap[n] ? typeNameMap[n] : s;
+        }
+        function normalizeSize(val) {
+            const s = (val === undefined || val === null) ? '' : String(val);
+            if (s === '') return '';
+            if (sizeNameMap[s] === undefined && Object.values(sizeNameMap).includes(s)) return s;
+            const n = parseInt(s);
+            return Number.isFinite(n) && sizeNameMap[n] ? sizeNameMap[n] : s;
+        }
+        function buildSlides() {
+            const track = document.getElementById('slideTrack');
+            track.innerHTML = '';
+            equipmentSlides.forEach((s, i) => {
+                const slide = document.createElement('div');
+                slide.className = 'slide' + (s.type === 'blank' ? ' blank' : '');
+                slide.dataset.index = i;
+                slide.innerHTML = `<img src='${s.img}' alt='${s.type}'>\n<div class='slide-caption'><span class='cap-type'>${s.type}</span></div>\n<div class='overlay-controls'></div>`;
+                track.appendChild(slide);
+            });
+        }
+        function clampCenter(i) { return Math.min(Math.max(i, 1), equipmentSlides.length - 2); }
+        function setCenterToMiddle() { const realCount = equipmentSlides.length - 2; const mid = Math.floor((realCount - 1) / 2); centerIndex = clampCenter(mid + 1); }
+        function getActiveSlide() { return document.querySelector('.slide.active'); }
+        function updateSlider() {
+            const track = document.getElementById('slideTrack');
+            const offset = -(centerIndex - 1) * 33.3333;
+            track.style.transform = `translateX(${offset}%)`;
+            markActive();
+            document.getElementById('prevSlide').disabled = (centerIndex === 1);
+            document.getElementById('nextSlide').disabled = (centerIndex === equipmentSlides.length - 2);
+        }
+        function markActive() {
+            document.querySelectorAll('.slide').forEach(s => s.classList.remove('active', 'neighbor'));
+            const slides = document.querySelectorAll('.slide');
+            if (!slides.length) return;
+            const left = centerIndex - 1, right = centerIndex + 1;
+            slides[centerIndex].classList.add('active');
+            if (left >= 0) slides[left].classList.add('neighbor');
+            if (right < slides.length) slides[right].classList.add('neighbor');
+            renderOverlay();
+        }
+        function renderOverlay() {
+            const active = getActiveSlide();
+            if (!active) return;
+            const currentType = equipmentSlides[centerIndex].type;
+            const overlay = active.querySelector('.overlay-controls');
+            if (!overlay) return;
+            if (currentType === 'blank') { overlay.innerHTML = ''; return; }
+            const sizeMap = groupedTypeSize[currentType];
+            if (!sizeMap) { overlay.innerHTML = '<div>Brak danych.</div>'; return; }
+            const sizeKeys = Object.keys(sizeMap);
+            const sizeOptionsHtml = sizeKeys.map((sizeKey, idx) => {
+                const arr = sizeMap[sizeKey];
+                const available = arr.filter(x => (x.is_In_Werehouse || x.Is_In_Werehouse) && !(x.is_Reserved || x.Is_Reserved)).length;
+                const price = arr[0].price || arr[0].Price;
+                return `<option value='${sizeKey}' data-ids='${arr.map(a => a.id || a.Id).join(',')}' data-available='${available}' data-price='${price}' ${idx === 0 ? 'selected' : ''}>${sizeKey} (dostępne: ${available}) – ${(Number(price) || 0).toFixed(2)} zł</option>`;
+            }).join('');
+            overlay.innerHTML = `
+     <div class='overlay-top'>
+     <select class='ovSizeSel'>${sizeOptionsHtml}</select>
+     <div class='qty-box'>
+     <button type='button' class='ovMinus'>−</button>
+     <span class='ovQty qty-number'>1</span>
+     <button type='button' class='ovPlus'>+</button>
+     </div>
+     </div>
+     <div class='add-row'>
+     <div class='price-line'>Cena: <span class='ovUnitPrice'>0,00</span> zł</div>
+     <button type='button' class='ovAdd'>➕ Dodaj</button>
+     </div>
+     <div class='add-info ovInfo'>Dodano do koszyka.</div>`;
+            bindOverlayHandlers();
+            updateOverlayPrice();
+        }
+        function updateOverlayPrice() {
+            const active = getActiveSlide(); if (!active) return;
+            const sel = active.querySelector('.ovSizeSel'); if (!sel) return;
+            const opt = sel.selectedOptions[0]; if (!opt) return;
+            const unitPriceEl = active.querySelector('.ovUnitPrice');
+            const minusBtn = active.querySelector('.ovMinus');
+            const plusBtn = active.querySelector('.ovPlus');
+            const qtyEl = active.querySelector('.ovQty');
+            const price = parseFloat((opt.dataset.price || '').replace(',', '.')) || 0;
+            if (unitPriceEl) unitPriceEl.textContent = price.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            let available = parseInt(opt.dataset.available);
+            if (!Number.isFinite(available)) {
+                const type = equipmentSlides[centerIndex].type;
+                const size = opt.value;
+                const arr = (groupedTypeSize[type] && groupedTypeSize[type][size]) ? groupedTypeSize[type][size] : [];
+                available = arr.filter(x => (x.is_In_Werehouse || x.Is_In_Werehouse) && !(x.is_Reserved || x.Is_Reserved)).length;
+            }
+            available = Number.isFinite(available) ? available : 0;
+            let qty = parseInt(qtyEl?.textContent) || 1;
+            if (qty > available) { qty = available > 0 ? available : 1; if (qtyEl) qtyEl.textContent = qty; }
+            if (plusBtn) plusBtn.disabled = qty >= available;
+            if (minusBtn) minusBtn.disabled = qty <= 1;
+        }
+        function bindOverlayHandlers() {
+            const active = getActiveSlide(); if (!active) return;
+            const sel = active.querySelector('.ovSizeSel');
+            const minus = active.querySelector('.ovMinus');
+            const plus = active.querySelector('.ovPlus');
+            const qtyEl = active.querySelector('.ovQty');
+            const addBtn = active.querySelector('.ovAdd');
+            if (sel) sel.onchange = updateOverlayPrice;
+            if (minus) minus.onclick = () => { let v = parseInt(qtyEl.textContent) || 1; if (v > 1) { qtyEl.textContent = v - 1; updateOverlayPrice(); } };
+            if (plus) plus.onclick = () => { let v = parseInt(qtyEl.textContent) || 1; const sel2 = active.querySelector('.ovSizeSel'); const opt = sel2?.selectedOptions[0]; let avail = parseInt(opt?.dataset?.available); if (!Number.isFinite(avail)) { const type = equipmentSlides[centerIndex].type; const size = sel2.value; const arr = (groupedTypeSize[type] && groupedTypeSize[type][size]) ? groupedTypeSize[type][size] : []; avail = arr.filter(x => (x.is_In_Werehouse || x.Is_Werehouse) && !(x.is_Reserved || x.Is_Reserved)).length; } if (v < Math.max(1, avail)) { qtyEl.textContent = v + 1; updateOverlayPrice(); } };
+            if (addBtn) addBtn.onclick = () => {
+                const sel2 = active.querySelector('.ovSizeSel'); const opt = sel2?.selectedOptions[0]; if (!opt) return;
+                const qty = parseInt(qtyEl.textContent) || 1;
+                let avail = parseInt(opt.dataset.available);
+                if (!Number.isFinite(avail)) {
+                    const type = equipmentSlides[centerIndex].type; const size = sel2.value; const arr = (groupedTypeSize[type] && groupedTypeSize[type][size]) ? groupedTypeSize[type][size] : []; avail = arr.filter(x => (x.is_In_Werehouse || x.Is_Werehouse) && !(x.is_Reserved || x.Is_Reserved)).length;
+                }
+                if (qty > avail) { alert('Brak wystarczającej ilości na stanie.'); return; }
+                const ids = (opt.dataset.ids || '').split(',').filter(Boolean).slice(0, qty).map(x => parseInt(x));
+                const type = equipmentSlides[centerIndex].type; const size = opt.value;
+                const current = getBasket();
+                const existingQty = current.filter(i => String(i.Type || i.type) === String(type) && String(i.Size || i.size) === String(size)).reduce((s, i) => s + (parseInt(i.Quantity || i.qty || i.Qty) || 1), 0);
+                if (existingQty + qty > avail) { alert(`Nie można dodać więcej niż dostępne. ${type} ${size}: dostępne ${avail}, już w koszyku ${existingQty}.`); return; }
+                addToBasket({ Type: type, Size: size, Price: parseFloat((opt.dataset.price || '').replace(',', '.')) || 0, Quantity: qty, EquipmentIds: ids });
+                const info = active.querySelector('.ovInfo'); if (info) { info.style.display = 'block'; info.classList.add('added-flash'); setTimeout(() => { info.style.display = 'none'; info.classList.remove('added-flash'); }, 1200); }
+            };
+        }
+        const basketKey = 'basket';
+        function getBasket() { try { return JSON.parse(localStorage.getItem(basketKey) || '[]'); } catch { return []; } }
+        function saveBasket(b) { localStorage.setItem(basketKey, JSON.stringify(b)); }
+        function addToBasket(entry) { const b = getBasket(); b.push(entry); saveBasket(b); }
+        function groupEquipment() {
+            groupedTypeSize = equipmentData.reduce((acc, e) => {
+                const typeRaw = (e.type || e.Type);
+                const sizeRaw = (e.size || e.Size);
+                const type = normalizeType(typeRaw);
+                const size = normalizeSize(sizeRaw);
+                if (!type) return acc;
+                if (!acc[type]) acc[type] = {}; if (!acc[type][size]) acc[type][size] = [];
+                acc[type][size].push(e);
+                return acc;
+            }, {});
+        }
+        async function loadEquipment() {
+            try { const res = await fetch('/api/equipment', { credentials: 'include' }); if (!res.ok) return; equipmentData = await res.json(); groupEquipment(); markActive(); }
+            catch { }
+        }
+        function initSlider() {
+            buildSlides(); setCenterToMiddle(); updateSlider();
+            document.getElementById('prevSlide').onclick = () => { centerIndex = clampCenter(centerIndex - 1); updateSlider(); };
+            document.getElementById('nextSlide').onclick = () => { centerIndex = clampCenter(centerIndex + 1); updateSlider(); };
+        }
+        document.addEventListener('DOMContentLoaded', () => { initSlider(); loadEquipment(); });
+    </script>
+</body>
+</html>

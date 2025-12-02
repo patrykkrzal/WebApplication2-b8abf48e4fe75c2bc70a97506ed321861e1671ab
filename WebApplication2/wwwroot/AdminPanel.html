@@ -1,0 +1,239 @@
+﻿﻿
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Panel administratora</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/site.css" rel="stylesheet">
+
+    <style>
+        body, .winter-button, .contact-item, .contact-value, .section-title, .msg {
+            font-family: 'Segoe UI', Arial, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
+        }
+
+        .admin-grid {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .two-col {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: .75rem;
+        }
+
+        .msg {
+            margin-top: .5rem;
+            font-size: .95rem;
+        }
+
+            .msg.error {
+                color: #ff6b6b;
+            }
+
+            .msg.success {
+                color: #2ecc71;
+            }
+
+        .logs-box {
+            margin-top: 1rem;
+        }
+
+        .logs-item {
+            padding: .45rem .6rem;
+            border-bottom: 1px solid rgba(255,255,255,.15);
+        }
+
+            .logs-item .lvl {
+                font-weight: 700;
+                margin-right: .4rem;
+            }
+
+        .delete-box {
+            margin-top: 1.2rem;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Przyciski na górze -->
+    <div class="buttons-top-right">
+        <button class="winter-button" type="button" data-nav="Index.html">❆ Menu</button>
+        <button class="winter-button" type="button" data-nav="Equipment.html">⛷️ Sprzęt</button>
+        <details class="user-panel disabled">
+            <summary class="winter-button">👤 Panel użytkownika</summary>
+            <div class="user-panel-menu">
+                <button class="winter-button" type="button" data-nav="OrderHistory.html" data-show-when-auth="true">Historia zamówień</button>
+                <button class="winter-button" type="button" data-nav="UserData.html" data-show-when-auth="true">Dane użytkownika</button>
+                <button class="winter-button" type="button" data-nav="WorkerPanel.html" data-required-roles="worker, admin">Panel pracownika</button>
+                <button class="winter-button" type="button" data-nav="AdminPanel.html" data-required-roles="admin">Panel administratora</button>
+                <button class="winter-button" type="button" data-nav="AddOrDeleteItem.html" data-required-roles="worker, admin">Dodaj Sprzęt</button>
+            </div>
+        </details>
+        <button class="winter-button" type="button" data-nav="Kontakt.html">📞 Kontakt</button>
+        <button class="winter-button" type="button" data-nav="Login.html" data-hide-when-auth="true">🔒 Logowanie</button>
+        <button class="winter-button" type="button" data-logout="true" data-show-when-auth="true">🚪 Wyloguj</button>
+    </div>
+
+    <!-- Zawartość strony -->
+    <div class="content-section">
+        <div class="frost-effect admin-grid">
+            <h1 class="winter-title">Panel administratora</h1>
+
+            <!-- Dodawanie pracownika -->
+            <div class="form-box">
+                <h2 class="section-title" style="text-align:center;">➕ Dodaj pracownika</h2>
+                <form id="workerForm" novalidate>
+                    <div class="two-col">
+                        <label>Imię<input type="text" name="FirstName" required /></label>
+                        <label>Nazwisko<input type="text" name="LastName" required /></label>
+                        <label>Email<input type="email" name="Email" required /></label>
+                        <label>Telefon (9 cyfr)<input type="text" name="PhoneNumber" maxlength="9" pattern="\d{9}" required /></label>
+                        <label>Stanowisko (Job_Title)<input type="text" name="Job_Title" required /></label>
+                        <label>Hasło (min.6)<input type="password" name="Password" minlength="6" required /></label>
+                        <label>Adres (opcjonalnie)<input type="text" name="Address" /></label>
+                        <label>Dni pracy<input type="text" name="Working_Days" /></label>
+                        <label>Start pracy<input type="time" name="WorkStart" value="08:00" required /></label>
+                        <label>Koniec pracy<input type="time" name="WorkEnd" value="16:00" required /></label>
+                    </div>
+                    <div class="block-actions" style="margin-top:.5rem;">
+                        <button class="winter-button" type="submit">Utwórz pracownika</button>
+                    </div>
+                    <div id="workerMsg" class="msg"></div>
+                </form>
+            </div>
+
+            <!-- Usuwanie użytkownika -->
+            <div class="form-box delete-box">
+                <h2 class="section-title" style="text-align:center;">🗑️ Usuń użytkownika / pracownika</h2>
+                <form id="deleteForm" novalidate>
+                    <label>Email do usunięcia<input type="email" name="DelEmail" id="delEmail" required placeholder="np. jan@firma.com" /></label>
+                    <div class="block-actions" style="margin-top:.6rem;">
+                        <button class="winter-button danger" type="submit">Usuń</button>
+                    </div>
+                    <div id="deleteMsg" class="msg"></div>
+                </form>
+            </div>
+
+            <!-- Panel logów -->
+            <div id="logContainer" class="logs-box" style="position:fixed; bottom:0; right:0; width:350px; max-height:300px; overflow:auto; background:#111; color:#fff; font-size:0.85rem; padding:0.5rem; z-index:1000; border-radius:4px;">
+                <div style="font-weight:bold; margin-bottom:0.5rem;">Logi</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JS -->
+    <script src="/js/site.js" defer></script>
+
+    <script>
+        (async function () {
+
+            // -------------------
+            // Panel logów
+            // -------------------
+            function logMessage(level, message) {
+                const container = document.getElementById('logContainer');
+                if (!container) return;
+                const div = document.createElement('div');
+                div.className = 'logs-item ' + level.toLowerCase();
+                div.innerHTML = `<span class="lvl">${level.toUpperCase()}:</span> ${message}`;
+                if (level === 'error') div.style.color = '#ff6b6b';
+                if (level === 'warn') div.style.color = '#ffd166';
+                if (level === 'info') div.style.color = '#4dabff';
+                container.appendChild(div);
+                container.scrollTop = container.scrollHeight;
+            }
+
+            // -------------------
+            // Formularz dodawania pracownika
+            // -------------------
+            document.getElementById('workerForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const msg = document.getElementById('workerMsg');
+                msg.className = 'msg';
+                msg.textContent = 'Tworzenie pracownika...';
+                logMessage('info', 'Rozpoczęto tworzenie pracownika');
+
+                const formData = Object.fromEntries(new FormData(e.target));
+                const payload = {
+                    FirstName: formData.FirstName?.trim(),
+                    LastName: formData.LastName?.trim(),
+                    Email: formData.Email?.trim(),
+                    PhoneNumber: formData.PhoneNumber?.trim(),
+                    Address: formData.Address?.trim() || null,
+                    WorkStart: formData.WorkStart,
+                    WorkEnd: formData.WorkEnd,
+                    Working_Days: formData.Working_Days?.trim() || null,
+                    Job_Title: formData.Job_Title?.trim(),
+                    Password: formData.Password
+                };
+
+                try {
+                    const res = await fetch('/api/Workers', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify(payload)
+                    });
+                    if (!res.ok) throw new Error(await res.text());
+                    const data = await res.json();
+
+                    msg.className = 'msg success';
+                    msg.textContent = 'Utworzono pracownika';
+                    logMessage('info', `Dodano pracownika: ${payload.Email}, WorkerId: ${data.WorkerId || 'brak'}`);
+                    e.target.reset();
+                } catch (err) {
+                    msg.className = 'msg error';
+                    msg.textContent = 'Wystąpił błąd'; // nie pokazuj szczegółów na stronie
+                    logMessage('error', `Błąd przy dodawaniu pracownika: ${err.message}`);
+                }
+            });
+
+            // -------------------
+            // Formularz usuwania pracownika
+            // -------------------
+            document.getElementById('deleteForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const delMsg = document.getElementById('deleteMsg');
+                delMsg.className = 'msg';
+                delMsg.textContent = 'Usuwanie...';
+
+                const email = document.getElementById('delEmail').value.trim();
+                if (!email) {
+                    delMsg.className = 'msg error';
+                    delMsg.textContent = 'Podaj email';
+                    logMessage('warn', 'Nie podano emaila do usunięcia');
+                    return;
+                }
+
+                try {
+                    const res = await fetch('/api/Workers/' + encodeURIComponent(email), {
+                        method: 'DELETE',
+                        credentials: 'include'
+                    });
+                    if (!res.ok) throw new Error(await res.text());
+                    const data = await res.json().catch(() => ({ Email: email }));
+
+                    delMsg.className = 'msg success';
+                    delMsg.textContent = 'Usunięto: ' + (data.Email || email);
+                    logMessage('info', `Usunięto pracownika: ${data.Email || email}`);
+                    e.target.reset();
+                } catch (err) {
+                    delMsg.className = 'msg error';
+                    delMsg.textContent = 'Wystąpił błąd'; // nie pokazuj szczegółów na stronie
+                    logMessage('error', `Błąd przy usuwaniu pracownika: ${err.message}`);
+                }
+            });
+
+            // -------------------
+            // Log przy załadowaniu strony
+            // -------------------
+            logMessage('info', 'Panel administratora załadowany');
+        })();
+    </script>
+</body>
+</html>

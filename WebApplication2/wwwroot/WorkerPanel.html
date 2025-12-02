@@ -1,0 +1,502 @@
+﻿<!DOCTYPE html>
+<html lang="pl">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Panel pracownika</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/site.css" rel="stylesheet">
+
+    <style>
+        .order-card {
+            background: rgba(255, 255, 255, .08);
+            border: 1px solid rgba(255, 255, 255, .18);
+            border-radius: 10px;
+            padding: .8rem;
+            margin: .6rem 0;
+        }
+
+        .order-items {
+            font-size: .9rem;
+            margin-top: .4rem;
+        }
+
+        .order-actions {
+            display: flex;
+            gap: .5rem;
+            margin-top: .6rem;
+        }
+
+        .ok {
+            background: #27ae60;
+            color: #fff;
+        }
+
+        .danger {
+            background: #c0392b;
+            color: #fff;
+        }
+
+        .info {
+            background: #2980b9;
+            color: #fff;
+        }
+
+        .grid {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .col {
+            background: transparent;
+            padding: .2rem;
+        }
+
+        .section-title {
+            margin: .2rem 0 .6rem 0;
+        }
+
+        .due {
+            font-size: .75rem;
+            opacity: .85;
+            margin-left: .4rem;
+        }
+
+        .report-box {
+            background: rgba(255, 255, 255, .08);
+            border: 1px solid rgba(255, 255, 255, .18);
+            border-radius: 10px;
+            padding: .8rem;
+            margin-top: .8rem;
+        }
+
+        .inline-row {
+            display: flex;
+            gap: .5rem;
+            align-items: center;
+            flex-wrap: wrap;
+            margin: .35rem 0;
+        }
+
+            .inline-row input {
+                flex: 1;
+                min-width: 220px;
+            }
+
+        .msg {
+            font-size: .85rem;
+            margin-top: .25rem;
+        }
+
+        .pdf-export {
+            color: #000 !important;
+            background: #fff !important;
+        }
+
+            .pdf-export .order-card {
+                border-color: #000 !important;
+            }
+    </style>
+</head>
+
+<body>
+    <div class="buttons-top-right">
+        <button class="winter-button" type="button" data-nav="Index.html">❆ Menu</button>
+        <button class="winter-button" type="button" data-nav="Equipment.html">⛷️ Sprzęt</button>
+
+        <details class="user-panel disabled">
+            <summary class="winter-button" aria-label="Panel użytkownika">👤 Panel użytkownika</summary>
+
+            <div class="user-panel-menu">
+                <button class="winter-button" type="button" data-nav="OrderHistory.html" data-show-when-auth="true">
+                    Historia zamówień
+                </button>
+                <button class="winter-button" type="button" data-nav="UserData.html" data-show-when-auth="true">
+                    Dane użytkownika
+                </button>
+                <button class="winter-button" type="button" data-nav="WorkerPanel.html" data-required-roles="worker, admin">
+                    Panel pracownika
+                </button>
+                <button class="winter-button" type="button" data-nav="AdminPanel.html" data-required-roles="admin">
+                    Panel administratora
+                </button>
+                <button class="winter-button" type="button" data-nav="AddOrDeleteItem.html" data-required-roles="worker, admin">
+                    Dodaj Sprzęt
+                </button>
+            </div>
+        </details>
+
+        <button class="winter-button" type="button" data-nav="Kontakt.html">📞 Kontakt</button>
+        <button class="winter-button" type="button" data-nav="Basket.html">🛒 Koszyk</button>
+        <button class="winter-button" type="button" data-logout="true" data-show-when-auth="true">🚪 Wyloguj</button>
+        <button class="winter-button" type="button" data-nav="Login.html" data-hide-when-auth="true">🔒 Logowanie</button>
+    </div>
+
+    <div class="content-section">
+        <div class="frost-effect grid">
+            <h1 class="winter-title">Panel pracownika</h1>
+
+            <div class="col">
+                <h2 class="section-title">Oczekujące (do wydania)</h2>
+                <div id="ordersPending"></div>
+            </div>
+
+            <div class="col">
+                <h2 class="section-title">Wydane (czekają na zwrot)</h2>
+                <div id="ordersIssued"></div>
+            </div>
+
+            <div class="col report-box">
+                <h2 class="section-title">📄 Raporty</h2>
+
+                <div class="inline-row">
+                    <label for="reportEmail" style="margin:0">Email użytkownika:</label>
+                    <input type="text" id="reportEmail" placeholder="email lub login użytkownika" />
+                    <button class="winter-button" id="btnReportByEmail">Raport dla email</button>
+                </div>
+
+                <div class="inline-row">
+                    <label for="reportOrderId" style="margin:0">Numer zamówienia:</label>
+                    <input type="number" id="reportOrderId" min="1" />
+                    <button class="winter-button" id="btnReportById">Raport po numerze</button>
+                </div>
+
+                <div class="inline-row" style="justify-content:flex-start">
+                    <button class="winter-button" id="btnReportAll">Raport wszystkich zamówień</button>
+                    <button class="winter-button" id="btnDownloadPdf">Pobierz PDF</button>
+                </div>
+
+                <div id="reportMsg" class="msg"></div>
+                <div id="reportOutput" class="order-items"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/site.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+    <script>
+        (async function () {
+
+            function waitForAuth() {
+                return new Promise(r => {
+                    if (window.auth) return r();
+                    let t = 0;
+                    const i = setInterval(() => {
+                        t++;
+                        if (window.auth || t > 80) {
+                            clearInterval(i);
+                            r();
+                        }
+                    }, 50);
+                });
+            }
+
+            await waitForAuth();
+
+            if (!window.auth || !window.auth.hasAnyRole('Worker', 'Admin')) {
+                window.location.href = 'Login.html';
+                return;
+            }
+
+            const P = document.getElementById('ordersPending');
+            const I = document.getElementById('ordersIssued');
+            const Out = document.getElementById('reportOutput');
+            const Msg = document.getElementById('reportMsg');
+
+            function formatDateShort(raw) {
+                if (!raw) return '';
+                const d = new Date(raw);
+                if (isNaN(d.getTime())) return '';
+                return d.toLocaleDateString('pl-PL');
+            }
+
+            function render(list, type) {
+                if (!Array.isArray(list) || !list.length)
+                    return '<div class="contact-item">Brak zamówień.</div>';
+
+                return list.map(o => {
+                    const user = o.User
+                        ? `${o.User.First_name || o.User.first_name || ''} ${o.User.Last_name || o.User.last_name || ''}`.trim()
+                        : '—';
+
+                    const total = Number(o.Price || 0).toFixed(2);
+
+                    const items = (o.Items || [])
+                        .map(i =>
+                            `${i.Type} ${i.Size} × ${i.Quantity} — ${Number(i.PriceWhenOrdered || 0).toFixed(2)} zł`
+                        )
+                        .join('<br>');
+
+                    let actions = '';
+
+                    if (type === 'pending') {
+                        actions =
+                            `<button class='winter-button ok' data-accept='${o.Id}'>Akceptuj (wydaj)</button>
+                                 <button class='winter-button danger' data-delete='${o.Id}'>Usuń</button>`;
+                    } else {
+                        actions =
+                            `<button class='winter-button info' data-return='${o.Id}'>Zwrot</button>`;
+                    }
+
+                    const due = type === 'issued'
+                        ? (formatDateShort(o.DueDate) || '')
+                        : '';
+
+                    return `
+                            <div class='order-card'>
+                                <div>
+                                    <strong>Zamówienie #${o.Id}</strong> — ${user} — Suma: ${total} zł
+                                    ${due ? `<span class='due'>Termin zwrotu: ${due}</span>` : ''}
+                                </div>
+
+                                <div class='order-items'>${items}</div>
+
+                                <div class='order-actions'>${actions}</div>
+                            </div>`;
+                }).join('');
+            }
+
+            async function load() {
+                const [pRes, iRes] = await Promise.all([
+                    fetch('/api/orders/pending', { credentials: 'include' }),
+                    fetch('/api/orders/issued', { credentials: 'include' })
+                ]);
+
+                const pending = pRes.ok ? await pRes.json() : [];
+                const issued = iRes.ok ? await iRes.json() : [];
+
+                P.innerHTML = render(pending, 'pending');
+                I.innerHTML = render(issued, 'issued');
+
+                bind();
+            }
+
+            async function call(url, method) {
+                const res = await fetch(url, { method, credentials: 'include' });
+                const txt = await res.text();
+
+                if (!res.ok) throw new Error(txt || ('HTTP ' + res.status));
+
+                return txt;
+            }
+
+            function renderReport(list, title) {
+                if (!Array.isArray(list)) list = list ? [list] : [];
+                if (!list.length)
+                    return `<div class='contact-item'>Brak danych dla raportu: ${title}</div>`;
+
+                return `
+                        <div class='order-items'><strong>${title}</strong></div>
+                        ${list.map(o => {
+                    const due = formatDateShort(o.DueDate) || '';
+
+                    const user = o.User
+                        ? `${o.User.First_name || ''} ${o.User.Last_Name || ''}`.trim()
+                        : '';
+
+                    const items = (o.ItemsGrouped || [])
+                        .map(g => `${g.Type} ${g.Size} × ${g.Count}`)
+                        .join(', ');
+
+                    return `
+                                <div class='order-card'>
+                                    Zamówienie #${o.Id}
+                                    — ${new Date(o.OrderDate).toLocaleString('pl-PL')}
+                                    — ${user}
+                                    — Suma: ${Number(o.Price || 0).toFixed(2)} zł
+                                    ${due ? `— Termin: ${due}` : ''}
+                                    <br>
+                                    <span class='order-items'>${items || ''}</span>
+                                </div>`;
+                }).join('')}
+                    `;
+            }
+
+            function bind() {
+
+                P.querySelectorAll('[data-accept]').forEach(b => {
+                    b.onclick = async () => {
+                        b.disabled = true;
+                        const id = b.getAttribute('data-accept');
+                        try {
+                            await call(`/api/orders/${id}/accept`, 'POST');
+                        } finally {
+                            b.disabled = false;
+                            load();
+                        }
+                    };
+                });
+
+                P.querySelectorAll('[data-delete]').forEach(b => {
+                    b.onclick = async () => {
+                        b.disabled = true;
+                        const id = b.getAttribute('data-delete');
+                        try {
+                            await call(`/api/orders/${id}`, 'DELETE');
+                        } finally {
+                            b.disabled = false;
+                            load();
+                        }
+                    };
+                });
+
+                I.querySelectorAll('[data-return]').forEach(b => {
+                    b.onclick = async () => {
+                        b.disabled = true;
+                        const id = b.getAttribute('data-return');
+                        try {
+                            await call(`/api/orders/${id}/returned`, 'POST');
+                        } finally {
+                            b.disabled = false;
+                            load();
+                        }
+                    };
+                });
+
+                document.getElementById('btnReportByEmail').onclick = async () => {
+                    Msg.textContent = '';
+                    Out.innerHTML = '';
+
+                    const email = document.getElementById('reportEmail').value.trim();
+                    if (!email) {
+                        Msg.textContent = 'Podaj email lub login użytkownika.';
+                        return;
+                    }
+
+                    const res = await fetch('/api/orders/by-email?email=' + encodeURIComponent(email), {
+                        credentials: 'include'
+                    });
+
+                    const data = res.ok ? await res.json() : [];
+                    Out.innerHTML = renderReport(data, 'Raport dla: ' + email);
+                };
+
+                document.getElementById('btnReportById').onclick = async () => {
+                    Msg.textContent = '';
+                    Out.innerHTML = '';
+
+                    const id = parseInt(document.getElementById('reportOrderId').value, 10);
+
+                    if (!id) {
+                        Msg.textContent = 'Podaj poprawny numer zamówienia.';
+                        return;
+                    }
+
+                    const url = '/api/orders/report?id=' + encodeURIComponent(id);
+
+                    const res = await fetch(url, { credentials: 'include' });
+                    const txt = await res.text();
+
+                    let data = null;
+                    try {
+                        data = JSON.parse(txt);
+                    } catch { }
+
+                    if (!res.ok) {
+                        Msg.textContent = (data && data.Message)
+                            ? data.Message
+                            : (txt || ('Błąd HTTP ' + res.status));
+                        return;
+                    }
+
+                    Out.innerHTML = renderReport(data, 'Raport zamówienie #' + id);
+                };
+
+                document.getElementById('btnReportAll').onclick = async () => {
+                    Msg.textContent = '';
+                    Out.innerHTML = '';
+
+                    const res = await fetch('/api/orders/all', { credentials: 'include' });
+                    const data = res.ok ? await res.json() : [];
+
+                    Out.innerHTML = renderReport(data, 'Raport wszystkich zamówień');
+                };
+
+                document.getElementById('btnDownloadPdf').onclick = async () => {
+                    if (!Out.innerHTML.trim()) {
+                        Msg.textContent = 'Najpierw wygeneruj raport.';
+                        return;
+                    }
+
+                    try {
+                        Out.classList.add('pdf-export');
+
+                        const canvas = await html2canvas(Out, {
+                            scale: 2,
+                            backgroundColor: '#ffffff'
+                        });
+
+                        Out.classList.remove('pdf-export');
+
+                        const imgData = canvas.toDataURL('image/png');
+                        const { jsPDF } = window.jspdf;
+
+                        const pdf = new jsPDF({
+                            unit: 'pt',
+                            format: 'a4'
+                        });
+
+                        const pageWidth = pdf.internal.pageSize.getWidth();
+                        const pageHeight = pdf.internal.pageSize.getHeight();
+
+                        const imgWidth = pageWidth - 40;
+                        const imgHeight = canvas.height * imgWidth / canvas.width;
+
+                        if (imgHeight <= pageHeight - 40) {
+                            pdf.addImage(imgData, 'PNG', 20, 20, imgWidth, imgHeight);
+                        } else {
+                            let remaining = imgHeight;
+                            let yCanvas = 0;
+
+                            const ratio = imgWidth / canvas.width;
+                            const slicePx = (pageHeight - 40) / ratio;
+
+                            while (remaining > 0) {
+                                const pageCanvas = document.createElement('canvas');
+                                pageCanvas.width = canvas.width;
+                                pageCanvas.height = Math.min(slicePx, canvas.height - yCanvas);
+
+                                const ctx = pageCanvas.getContext('2d');
+                                ctx.drawImage(
+                                    canvas,
+                                    0,
+                                    yCanvas,
+                                    pageCanvas.width,
+                                    pageCanvas.height,
+                                    0,
+                                    0,
+                                    pageCanvas.width,
+                                    pageCanvas.height
+                                );
+
+                                const pageImg = pageCanvas.toDataURL('image/png');
+
+                                pdf.addImage(pageImg, 'PNG', 20, 20, imgWidth, pageCanvas.height * ratio);
+
+                                remaining -= pageCanvas.height * ratio;
+                                yCanvas += pageCanvas.height;
+
+                                if (remaining > 0) pdf.addPage();
+                            }
+                        }
+
+                        pdf.save('raport.pdf');
+
+                    } catch (err) {
+                        Msg.textContent = 'Nie udało się wygenerować PDF: ' + (err.message || err);
+                    }
+                };
+            }
+
+            load();
+
+        })();
+    </script>
+
+</body>
+
+</html>
