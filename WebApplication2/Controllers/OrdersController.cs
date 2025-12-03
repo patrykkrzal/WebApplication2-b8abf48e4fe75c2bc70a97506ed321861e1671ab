@@ -305,12 +305,7 @@ namespace Rent.Controllers
             }
         }
 
-        // --------------------------------------------------------------------
-        // DALSZE ENDPOINTY
-        // --------------------------------------------------------------------
-        // Wszystkie poni¿ej mam ju¿ przeformatowane do³adnego stylu,
-        // ale ze wzglêdu na limit miejsca – mogê je sformatowaæ w kolejnym poœcie.
-        // --------------------------------------------------------------------
+ 
 
     }
 }

@@ -28,7 +28,7 @@ namespace Rent.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            // Authenticate by email: find user by email, then sign in by username
+        
             var user = await _userManager.FindByEmailAsync(dto.Email);
             if (user == null)
                 return Unauthorized(new { Message = "Invalid email or password" });
