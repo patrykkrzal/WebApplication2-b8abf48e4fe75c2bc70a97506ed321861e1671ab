@@ -6,8 +6,7 @@ namespace Rent.Tests
  [TestFixture]
  public class SeedTests
  {
- // Calculation logic matching UI:5% discount per extra item and per extra day,
- // capped at20% for items and20% for days (so max40% total).
+
  private static decimal CalculateFinalPrice(decimal basePricePerDay, int days, int itemsCount)
  {
  if (days <1) days =1;
@@ -23,43 +22,19 @@ namespace Rent.Tests
  }
 
  [Test]
- public void CalculateFinalPrice_WithThreeItemsAndThreeDays_ReturnsExpected()
+ [TestCase(100.0,3,3,240.0)]
+ [TestCase(50.0,10,10,300.0)]
+ public void CalculateFinalPrice_VariousCases_ReturnsExpected(double basePricePerDayD, int days, int items, double expectedD)
  {
  // arrange
- decimal basePricePerDay =100m; // sum of item unit prices
- int days =3;
- int items =3;
-
- // items discount: (3-1)*5% =10%
- // days discount: (3-1)*5% =10%
- // total discount =20%
- // gross =100 *3 =300
- // final =300 * (1 -0.2) =240
+ var basePricePerDay = (decimal)basePricePerDayD;
+ var expected = (decimal)expectedD;
 
  // act
  var result = CalculateFinalPrice(basePricePerDay, days, items);
 
  // assert
- Assert.AreEqual(240m, result);
- }
-
- [Test]
- public void CalculateFinalPrice_DiscountCapsApplied()
- {
- // arrange: many items and many days -> discounts capped at20% each => total40%
- decimal basePricePerDay =50m;
- int days =10; // would give (10-1)*5% =45% -> capped to20%
- int items =10; // would give (10-1)*5% =45% -> capped to20%
-
- // gross =50 *10 =500
- // total discount =0.2 +0.2 =0.4
- // final =500 *0.6 =300
-
- // act
- var result = CalculateFinalPrice(basePricePerDay, days, items);
-
- // assert
- Assert.AreEqual(300m, result);
+ Assert.AreEqual(expected, result);
  }
  }
 }

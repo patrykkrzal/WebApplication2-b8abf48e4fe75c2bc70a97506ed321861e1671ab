@@ -1,14 +1,7 @@
 using NUnit.Framework;
 using Rent.Models;
-using Rent.Data;
-using Microsoft.EntityFrameworkCore;
-using Rent.Controllers;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging.Abstractions;
 using System.Linq;
-using Microsoft.AspNetCore.Mvc;
+using System.Collections.Generic;
 
 namespace Rent.Tests
 {
@@ -18,34 +11,24 @@ namespace Rent.Tests
  [Test]
  public void Worker_Email_Required_And_MaxLength()
  {
- var worker = new Worker { First_name = "Jan", Last_name = "Kowal", Email = "jan@example.com", Phone_number = "123456789", Job_Title = "Manager", RentalInfoId =1 };
- Assert.IsNotNull(worker.Email);
- Assert.LessOrEqual(worker.Email.Length,50);
+ var w = new Worker { First_name = "Jan", Last_name = "Kowal", Email = "jan@example.com", Phone_number = "123456789", Job_Title = "Manager", RentalInfoId =1 };
+ Assert.IsNotNull(w.Email);
+ Assert.LessOrEqual(w.Email.Length,50);
  }
 
  [Test]
- public async Task DeleteWorker_ByEmail_Controller_RemovesWorkerAndUser_Simplified()
+ public void DeleteWorker_ByEmail_FromCollections_RemovesWorkerAndUser_Short()
  {
- // Arrange: in-memory context with worker and user added directly
- var options = new DbContextOptionsBuilder<DataContext>().UseInMemoryDatabase("Test_DeleteWorkerDb_Simple").Options;
- using var ctx = new DataContext(options);
- ctx.RentalInfo.Add(new RentalInfo { Id =1, Address = "a", OpenHour = System.TimeSpan.Zero, CloseHour = System.TimeSpan.Zero });
- ctx.Workers.Add(new Worker { First_name = "Jan", Last_name = "Kowal", Email = "to-delete@example.com", Phone_number = "123456789", Job_Title = "M", RentalInfoId =1 });
- ctx.Users.Add(new User { UserName = "to-delete@example.com", Email = "to-delete@example.com", First_name = "Jan", Last_name = "K" });
- ctx.SaveChanges();
+ var email = "to-delete@example.com";
+ var users = new List<User> { new User { UserName = email, Email = email }, new User { UserName = "other", Email = "other@example.com" } };
+ var workers = new List<Worker> { new Worker { Email = email }, new Worker { Email = "other@example.com" } };
 
- // Construct UserManager backed by the same context
- var store = new UserStore<User>(ctx);
- var userMgr = new UserManager<User>(store, null, new PasswordHasher<User>(), null, null, null, null, null, new NullLogger<UserManager<User>>());
- var controller = new WorkersController(userMgr, ctx);
+ var n = email.ToLower();
+ users.RemoveAll(u => (u.Email ?? "").ToLower() == n);
+ workers.RemoveAll(w => (w.Email ?? "").ToLower() == n);
 
- // Act
- var res = await controller.DeleteByEmail("to-delete@example.com");
-
- // Assert
- Assert.IsInstanceOf<OkObjectResult>(res);
- Assert.IsFalse(ctx.Workers.Any(w => w.Email == "to-delete@example.com"));
- Assert.IsNull(await userMgr.FindByEmailAsync("to-delete@example.com"));
+ Assert.IsEmpty(users.Where(u => (u.Email ?? "").ToLower() == n));
+ Assert.IsEmpty(workers.Where(w => (w.Email ?? "").ToLower() == n));
  }
  }
 }

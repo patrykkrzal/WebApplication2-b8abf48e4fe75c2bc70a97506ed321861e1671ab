@@ -23,11 +23,11 @@ namespace Rent.Tests
  [Test]
  public void AddEquipment_Then_DeleteById_RemovesItem()
  {
- // Arrange: in-memory DataContext
+
  var options = new DbContextOptionsBuilder<DataContext>().UseInMemoryDatabase("EquipDb_AddDelete").Options;
  using var ctx = new DataContext(options);
 
- // Add an equipment item directly to the context (avoid stored-proc call in controller.AddEquipment)
+
  var eq = new Equipment
  {
  Type = EquipmentType.Skis,
@@ -40,11 +40,11 @@ namespace Rent.Tests
  ctx.SaveChanges();
  var id = eq.Id;
 
- // Ensure it exists
+
  var fetched = ctx.Equipment.Find(id);
  Assert.IsNotNull(fetched);
 
- // Act: delete via controller
+ //  delete 
  var controller = new EquipmentController(ctx);
  var res = controller.DeleteById(id);
 
