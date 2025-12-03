@@ -20,13 +20,6 @@ public class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
-        // DemoMode
-        static bool GetBool(string? v)
-            => !string.IsNullOrWhiteSpace(v) && (v.Equals("1") || v.Equals("true", StringComparison.OrdinalIgnoreCase) || v.Equals("yes", StringComparison.OrdinalIgnoreCase));
-        var demoFromCfg = builder.Configuration["DemoMode"];
-        var demoFromEnv = Environment.GetEnvironmentVariable("DEMO_MODE");
-        var demoMode = GetBool(demoFromEnv) || GetBool(demoFromCfg);
-
         // CONNECTION STRING OVERRIDES
         var rentDbEnv = Environment.GetEnvironmentVariable("RENT_DB");
         var csEnv = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
@@ -59,7 +52,6 @@ public class Program
         }
 
         Console.WriteLine("Connection string: " + builder.Configuration.GetConnectionString("DefaultConnection"));
-        Console.WriteLine("DemoMode: " + demoMode);
 
         // SERVICES
         builder.Services.AddControllers().AddJsonOptions(o =>
@@ -136,7 +128,7 @@ public class Program
             seeder.SeedDataContext();
         }
 
-        // CREATE ROLES AND ADMIN/DEMO USERS
+        // CREATE ROLES AND ADMIN/USERS
         using (var scope = app.Services.CreateScope())
         {
             var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
@@ -159,17 +151,6 @@ public class Program
                 var result = await userManager.CreateAsync(user, password);
                 if (result.Succeeded)
                     await userManager.AddToRoleAsync(user, "Admin");
-            }
-
-            if (demoMode)
-            {
-                var demoEmail = "demo@demo.local";
-                var demo = await userManager.FindByEmailAsync(demoEmail);
-                if (demo == null)
-                {
-                    demo = new User { UserName = demoEmail, Email = demoEmail, First_name = "Demo", Last_name = "User" };
-                    await userManager.CreateAsync(demo, "Demo1234,");
-                }
             }
         }
 

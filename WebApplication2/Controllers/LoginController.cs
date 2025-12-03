@@ -5,6 +5,7 @@ using Rent.Models;
 using Rent.DTO; // LoginUserDTO
 using System.Security.Claims;
 using System.Threading.Tasks;
+using System.Linq;
 
 namespace Rent.Controllers
 {
@@ -37,6 +38,32 @@ namespace Rent.Controllers
                 return Unauthorized(new { Message = "Invalid email or password" });
 
             return Ok(new { Message = "Login successful" });
+        }
+
+        [HttpGet("check")]
+        public IActionResult Check()
+        {
+            var isAuth = User?.Identity?.IsAuthenticated ?? false;
+            var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+            var cookies = Request.Cookies?.Keys.ToArray() ?? new string[0];
+            var claims = isAuth ? User.Claims.Select(c => new { c.Type, c.Value }).ToArray() : new object[0];
+
+            return Ok(new
+            {
+                IsAuthenticated = isAuth,
+                AuthenticationType = User?.Identity?.AuthenticationType,
+                UserName = User?.Identity?.Name,
+                AuthHeader = authHeader,
+                Cookies = cookies,
+                Claims = claims
+            });
+        }
+
+        [Authorize]
+        [HttpGet("protected")]
+        public IActionResult Protected()
+        {
+            return Ok(new { Message = "Access granted", User = User?.Identity?.Name });
         }
 
         [Authorize]

@@ -33,12 +33,12 @@ bld/
 [Ll]og/
 [Ll]ogs/
 
-# Visual Studio 2015/2017 cache/options directory
+# Visual Studio2015/2017 cache/options directory
 .vs/
 # Uncomment if you have tasks that create the project's static files in wwwroot
 #wwwroot/
 
-# Visual Studio 2017 auto generated files
+# Visual Studio2017 auto generated files
 Generated\ Files/
 
 # MSTest test Results
@@ -78,7 +78,6 @@ StyleCopReport.xml
 *.obj
 *.iobj
 *.pch
-*.pdb
 *.ipdb
 *.pgc
 *.pgd
@@ -121,7 +120,7 @@ ipch/
 # Visual Studio Trace Files
 *.e2e
 
-# TFS 2012 Local Workspace
+# TFS2012 Local Workspace
 $tf/
 
 # Guidance Automation Toolkit
@@ -285,13 +284,13 @@ FakesAssemblies/
 .ntvs_analysis.dat
 node_modules/
 
-# Visual Studio 6 build log
+# Visual Studio6 build log
 *.plg
 
-# Visual Studio 6 workspace options file
+# Visual Studio6 workspace options file
 *.opt
 
-# Visual Studio 6 auto-generated workspace file (contains which files were open etc.)
+# Visual Studio6 auto-generated workspace file (contains which files were open etc.)
 *.vbw
 
 # Visual Studio LightSwitch build output
@@ -353,7 +352,7 @@ ASALocalRun/
 # BeatPulse healthcheck temp database
 healthchecksdb
 
-# Backup folder for Package Reference Convert tool in Visual Studio 2017
+# Backup folder for Package Reference Convert tool in Visual Studio2017
 MigrationBackup/
 
 # Ionide (cross platform F# VS Code tools) working folder
@@ -361,3 +360,72 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Visual Studio / .NET
+bin/
+obj/
+.vs/
+*.user
+*.suo
+
+# Logs / build outputs
+logs/
+build_output/
+analyzer-report/
+
+# Node modules (frontend)
+ClientApp/node_modules/
+node_modules/
+
+# Client build outputs
+ClientApp/dist/
+ClientApp/build/
+
+# Static uploads
+Projekt/wwwroot/uploads/
+Projekt/wwwroot/workshop-images/
+wwwroot/uploads/
+
+# Roslyn caches or local analyzer binaries
+roslyn/
+.roslyn/
+
+# IDE files
+*.ide.*
+.vscode/
+.idea/
+
+# User secrets
+secrets.json
+appsettings.Secrets.json
+appsettings.*.Local.json
+
+# EF Core migrations should be kept
+!Projekt/Migrations/**
+
+# dotnet tool file
+**/.dotnet_tool_restore.json
+
+# Logs
+*.log
+
+# npm logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Mac
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Coverage
+coverage/
+TestResults/
+
+# Temporary
+*.tmp
+*.temp
+
+# End of .gitignore
