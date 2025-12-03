@@ -11,7 +11,7 @@ namespace Rent.Models
 
         [Required]
         [MaxLength(255)]
-        public string Rented_Items { get; set; }
+        public required string Rented_Items { get; set; }
 
         public DateTime OrderDate { get; set; }
 

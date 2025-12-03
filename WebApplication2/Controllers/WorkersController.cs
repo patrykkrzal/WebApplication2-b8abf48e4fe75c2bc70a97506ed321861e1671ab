@@ -78,7 +78,7 @@ namespace Rent.Controllers
             return Ok(new { Message = "Worker created successfully", UserId = user.Id, WorkerId = worker.Id, RentalInfoId = resolvedRentalInfoId });
         }
 
-        // DELETE worker & linked user by email
+        // DELETE user/worker
         [HttpDelete("{email}")]
         public async Task<IActionResult> DeleteByEmail(string email)
         {

@@ -9,10 +9,10 @@ namespace Rent.Models
     public class User : IdentityUser
     {
         [Required, MaxLength(50)]
-        public string First_name { get; set; }
+        public string First_name { get; set; } = string.Empty;
 
         [Required, MaxLength(50)]
-        public string Last_name { get; set; }
+        public string Last_name { get; set; } = string.Empty;
 
     
         [MaxLength(50)]

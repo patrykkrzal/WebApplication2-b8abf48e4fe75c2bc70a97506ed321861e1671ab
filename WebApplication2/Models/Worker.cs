@@ -9,17 +9,17 @@ namespace Rent.Models
         public int Id { get; set; }
         [Required]
         [MaxLength(50)]
-        public string First_name { get; set; }
+        public string First_name { get; set; } = string.Empty;
         [Required]
         [MaxLength(50)]
-        public string Last_name { get; set; }
+        public string Last_name { get; set; } = string.Empty;
         [Required]
         [MaxLength(50)]
         [EmailAddress]
-        public string Email { get; set; }
+        public string Email { get; set; } = string.Empty;
         [Required]
         [MaxLength(9)]
-        public string Phone_number { get; set; }
+        public string Phone_number { get; set; } = string.Empty;
 
         [MaxLength(255)]
         public string? Address { get; set; }
@@ -30,15 +30,13 @@ namespace Rent.Models
         public string? Working_Days { get; set; }
         [Required]
         [MaxLength(30)]
-        public string? Job_Title { get; set; }
+        public string Job_Title { get; set; } = string.Empty;
 
         [MaxLength(30)]
         public string? Role { get; set; } = "worker";
 
-        public RentalInfo RentalInfo { get; set; } = null;
+        public RentalInfo RentalInfo { get; set; } = null!;
         public int RentalInfoId { get; set; }
-
-
     }
 }
 

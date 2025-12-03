@@ -3,8 +3,6 @@ using Microsoft.OpenApi.Models;
 using Rent;
 using Rent.Models;
 using Rent.Data;
-using Rent.Interfaces;
-using Rent.Ropository;
 using Microsoft.AspNetCore.Identity;
 using System.Security.Claims;
 using System.Text.Json.Serialization;
@@ -61,7 +59,6 @@ public class Program
             o.JsonSerializerOptions.DictionaryKeyPolicy = null;
         });
 
-        builder.Services.AddScoped<IRentalInfoRepository, RentalInfoRepository>();
         builder.Services.AddScoped<Seed>();
         builder.Services.AddDbContext<DataContext>(options =>
             options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));

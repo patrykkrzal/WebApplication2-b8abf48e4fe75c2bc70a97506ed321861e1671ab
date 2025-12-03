@@ -21,7 +21,7 @@ namespace Rent.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // Deklaracja triggera na tabeli Orders (eliminuje konflikt OUTPUT + trigger)
+  
             modelBuilder.Entity<Order>()
                 .ToTable("Orders", t => t.HasTrigger("trg_Orders_ValidateDiscount"));
 
