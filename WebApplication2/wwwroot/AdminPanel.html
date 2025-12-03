@@ -60,7 +60,7 @@
 </head>
 
 <body>
-    <!-- Przyciski na górze -->
+
     <div class="buttons-top-right">
         <button class="winter-button" type="button" data-nav="Index.html">❆ Menu</button>
         <button class="winter-button" type="button" data-nav="Equipment.html">⛷️ Sprzęt</button>
@@ -126,15 +126,15 @@
         </div>
     </div>
 
-    <!-- JS -->
+
     <script src="/js/site.js" defer></script>
 
     <script>
         (async function () {
 
-            // -------------------
+       
             // Panel logów
-            // -------------------
+     
             function logMessage(level, message) {
                 const container = document.getElementById('logContainer');
                 if (!container) return;
@@ -148,9 +148,8 @@
                 container.scrollTop = container.scrollHeight;
             }
 
-            // -------------------
             // Formularz dodawania pracownika
-            // -------------------
+ 
             document.getElementById('workerForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const msg = document.getElementById('workerMsg');
@@ -193,9 +192,9 @@
                 }
             });
 
-            // -------------------
+            
             // Formularz usuwania pracownika
-            // -------------------
+           
             document.getElementById('deleteForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const delMsg = document.getElementById('deleteMsg');
@@ -224,14 +223,13 @@
                     e.target.reset();
                 } catch (err) {
                     delMsg.className = 'msg error';
-                    delMsg.textContent = 'Wystąpił błąd'; // nie pokazuj szczegółów na stronie
+                    delMsg.textContent = 'Wystąpił błąd'; 
                     logMessage('error', `Błąd przy usuwaniu pracownika: ${err.message}`);
                 }
             });
 
-            // -------------------
             // Log przy załadowaniu strony
-            // -------------------
+       
             logMessage('info', 'Panel administratora załadowany');
         })();
     </script>

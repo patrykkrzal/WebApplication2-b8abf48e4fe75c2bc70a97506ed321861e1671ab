@@ -33,14 +33,12 @@ namespace Rent.Models
         public string? Job_Title { get; set; }
 
         [MaxLength(30)]
-        public string? Role { get; set; } = "worker"; // added to match controller assignment
+        public string? Role { get; set; } = "worker";
 
         public RentalInfo RentalInfo { get; set; } = null;
         public int RentalInfoId { get; set; }
 
-        // Warehouse navigation removed
-        // public Warehouse? Warehouse { get; set; }
-        // public int? WarehouseId { get; set; }
+
     }
 }
 

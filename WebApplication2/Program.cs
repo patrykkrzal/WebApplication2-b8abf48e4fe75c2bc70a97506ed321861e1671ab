@@ -105,7 +105,7 @@ public class Program
 
         var app = builder.Build();
 
-        // DATABASE MIGRATIONS + SP/FUNCTIONS
+        //MIGRATIONS 
         using (var scope = app.Services.CreateScope())
         {
             var context = scope.ServiceProvider.GetRequiredService<DataContext>();
@@ -128,7 +128,7 @@ public class Program
             seeder.SeedDataContext();
         }
 
-        // CREATE ROLES AND ADMIN/USERS
+        //ADMIN/USERS/WORKERS ROLES
         using (var scope = app.Services.CreateScope())
         {
             var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
@@ -154,7 +154,7 @@ public class Program
             }
         }
 
-        // SWAGGER + MIDDLEWARE
+       
         app.UseSwagger();
         app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Rent API V1"));
         app.UseHttpsRedirection();

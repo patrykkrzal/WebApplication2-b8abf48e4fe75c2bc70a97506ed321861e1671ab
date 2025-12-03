@@ -12,8 +12,8 @@ using Rent.Data;
 namespace Rent.Migrations
 {
     [DbContext(typeof(DataContext))]
-    [Migration("20251202163319_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20251203013650_Init")]
+    partial class Init
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
