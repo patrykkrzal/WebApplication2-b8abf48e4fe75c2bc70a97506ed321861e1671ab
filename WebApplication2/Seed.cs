@@ -18,7 +18,7 @@ namespace Rent
 
         public void SeedDataContext()
         {
-            // Seed only if brak rekordów w RentalInfo (nie Users bo admin już istnieje)
+       
             if (!dataContext.RentalInfo.Any())
             {
                 var rentalInfo = new RentalInfo()
@@ -121,11 +121,9 @@ namespace Rent
                 AddItems(EquipmentType.Snowboard, Size.Medium, 160m);
                 AddItems(EquipmentType.Goggles, Size.Universal, 55m);
 
-                // Pierwszy zapis: RentalInfo + Users + Workers + Equipment
                 dataContext.RentalInfo.Add(rentalInfo);
                 dataContext.SaveChanges();
 
-                // Dodaj przykładowe zamówienie po zapisaniu bazowych danych
                 var order1 = new Order()
                 {
                     Rented_Items = "Skis Small",

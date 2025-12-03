@@ -164,6 +164,16 @@
             });
         }
 
+        // shorter size map + helper
+        const sizeMap = {
+            Skis: ['Small', 'Medium', 'Large'],
+            Snowboard: ['Small', 'Medium', 'Large'],
+            Poles: ['Small', 'Medium', 'Large'],
+            Helmet: ['Small', 'Medium', 'Large'],
+            Gloves: ['Small', 'Medium', 'Large'],
+            Goggles: ['Universal']
+        };
+
         function tSize(sz) {
             const m = {
                 Small: 'Mały',
@@ -174,39 +184,21 @@
             return m[sz] || sz;
         }
 
+        function makeOption(value) {
+            const opt = document.createElement('option');
+            opt.value = value;
+            opt.textContent = tSize(value);
+            return opt;
+        }
+
         function populateSizesForType(type) {
             const sizeSelect = document.getElementById('size');
             sizeSelect.innerHTML = '';
 
-            const sizes = availabilityByType[type]
-                ? Array.from(availabilityByType[type])
-                : [];
+            // prefer availability info from server, otherwise fallback to sizeMap
+            const sizes = availabilityByType[type] ? Array.from(availabilityByType[type]) : (sizeMap[type] || ['Small', 'Medium', 'Large']);
 
-            if (sizes.length === 0) {
-                const fallback = {
-                    Skis: ['Small', 'Medium', 'Large'],
-                    Snowboard: ['Small', 'Medium', 'Large'],
-                    Poles: ['Small', 'Medium', 'Large'],
-                    Helmet: ['Small', 'Medium', 'Large'],
-                    Gloves: ['Small', 'Medium', 'Large'],
-                    Goggles: ['Universal']
-                };
-
-                (fallback[type] || ['Small', 'Medium', 'Large'])
-                    .forEach(sz => {
-                        const opt = document.createElement('option');
-                        opt.value = sz;
-                        opt.textContent = tSize(sz);
-                        sizeSelect.appendChild(opt);
-                    });
-            } else {
-                sizes.forEach(sz => {
-                    const opt = document.createElement('option');
-                    opt.value = sz;
-                    opt.textContent = tSize(sz);
-                    sizeSelect.appendChild(opt);
-                });
-            }
+            sizes.forEach(sz => sizeSelect.appendChild(makeOption(sz)));
 
             sizeSelect.disabled = false;
         }
