@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
-using Rent.Interfaces;
+using Rent.Data;
+using Rent.Models;
+using System.Linq;
 
 namespace Rent.Controllers
 {
@@ -7,17 +9,17 @@ namespace Rent.Controllers
  [Route("api/[controller]")]
  public class RentalInfoController : ControllerBase
  {
- private readonly IRentalInfoRepository _rentalInfoRepository;
+ private readonly DataContext _dbContext;
 
- public RentalInfoController(IRentalInfoRepository rentalInfoRepository)
+ public RentalInfoController(DataContext dbContext)
  {
- _rentalInfoRepository = rentalInfoRepository;
+ _dbContext = dbContext;
  }
 
  [HttpGet]
  public IActionResult Get()
  {
- var infos = _rentalInfoRepository.GetRentalInfos();
+ var infos = _dbContext.RentalInfo.ToList();
  return Ok(infos);
  }
  }

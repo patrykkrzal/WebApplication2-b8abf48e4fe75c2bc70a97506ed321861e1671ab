@@ -12,7 +12,7 @@ namespace Rent.Models
         public TimeSpan CloseHour { get; set; }
         [Required]
         [MaxLength(50)]
-        public string Address { get; set; }
+        public required string Address { get; set; }
         [MaxLength(9)]
         public string? PhoneNumber { get; set; }
         [MaxLength(255)]
