@@ -1,0 +1,96 @@
+@page "/UserData.html"
+@{
+ ViewData["Title"] = "Dane u¿ytkownika";
+}
+
+<h1 class="winter-title">Dane u¿ytkownika</h1>
+<div class="content-section">
+ <div class="frost-effect">
+ <div id="userData" class="contact-info" data-show-when-auth="true">
+ <p>£adowanie danych...</p>
+ </div>
+
+ <div class="form-box" id="usernameBox" data-show-when-auth="true" style="margin-top:1rem; display:none;">
+ <label>
+ Nowa nazwa u¿ytkownika
+ <input type="text" id="newUserName" minlength="3" maxlength="50" class="form-control" />
+ </label>
+ <div class="block-actions">
+ <button class="winter-button" id="btnChangeUserName">Zmieñ nazwê</button>
+ <span id="userMsg" class="msg"></span>
+ </div>
+ </div>
+
+ <div class="alt-link" data-hide-when-auth="true">
+ Aby zobaczyæ dane, zaloguj siê: <a href="/Login.html">Logowanie</a>
+ </div>
+ </div>
+</div>
+
+@section Scripts {
+<script>
+(function(){
+ const apiBase = (window.__rent && window.__rent.apiBase) ? window.__rent.apiBase : '';
+ async function loadUser() {
+ try {
+ let res = await fetch(`${apiBase}/api/auth/me`, { credentials: 'include' });
+ if (!res.ok) res = await fetch(`${apiBase}/api/users/me`, { credentials: 'include' });
+ if (!res.ok) return;
+ const u = await res.json();
+ const el = document.getElementById('userData');
+ const userName = u.userName ?? u.UserName ?? '—';
+ const email = u.email ?? u.Email ?? '—';
+ const phone = u.phoneNumber ?? u.PhoneNumber ?? '—';
+ const firstName = u.first_name ?? u.First_name ?? '—';
+ const lastName = u.last_name ?? u.Last_Name ?? u.LastName ?? u.Last_name ?? '—';
+ el.innerHTML = `
+ <div class="contact-item"><strong>Nazwa u¿ytkownika</strong><div class="contact-value">${userName}</div></div>
+ <div class="contact-item"><strong>Email</strong><div class="contact-value">${email}</div></div>
+ <div class="contact-item"><strong>Telefon</strong><div class="contact-value">${phone}</div></div>
+ <div class="contact-item"><strong>Imiê</strong><div class="contact-value">${firstName}</div></div>
+ <div class="contact-item"><strong>Nazwisko</strong><div class="contact-value">${lastName}</div></div>`;
+ document.getElementById('usernameBox').style.display = '';
+ document.getElementById('newUserName').value = userName;
+ } catch (e) {
+ // ignore
+ }
+ }
+
+ async function changeUserName() {
+ const msg = document.getElementById('userMsg');
+ msg.className = 'msg';
+ msg.textContent = 'Zapisywanie...';
+ const newName = document.getElementById('newUserName').value.trim();
+ if (!newName) {
+ msg.className = 'msg error';
+ msg.textContent = 'Podaj nazwê u¿ytkownika';
+ return;
+ }
+ try {
+ const res = await fetch(`${apiBase}/api/users/me/username`, {
+ method: 'PATCH',
+ headers: { 'Content-Type': 'application/json' },
+ credentials: 'include',
+ body: JSON.stringify({ UserName: newName })
+ });
+ const text = await res.text();
+ let data = text;
+ try { data = JSON.parse(text); } catch {}
+ if (!res.ok) throw new Error(typeof data === 'string' ? data : (data.Message || 'B³¹d'));
+ msg.className = 'msg success';
+ msg.textContent = 'Zmieniono nazwê u¿ytkownika';
+ await loadUser();
+ } catch (e) {
+ msg.className = 'msg error';
+ msg.textContent = 'B³¹d: ' + (e.message || e);
+ }
+ }
+
+ document.addEventListener('DOMContentLoaded', function(){
+ loadUser();
+ const btn = document.getElementById('btnChangeUserName');
+ if (btn) btn.addEventListener('click', changeUserName);
+ });
+})();
+</script>
+}

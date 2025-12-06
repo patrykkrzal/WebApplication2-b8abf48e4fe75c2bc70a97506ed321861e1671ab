@@ -1,0 +1,49 @@
+﻿@page "/Kontakt.html"
+@{
+ ViewData["Title"] = "Kontakt";
+}
+
+<div class="content-section">
+ <div class="frost-effect">
+ <h1 class="winter-title">Kontakt</h1>
+ <div id="contactInfo" class="contact-info">
+ <p>Ładowanie danych kontaktowych...</p>
+ </div>
+ </div>
+</div>
+
+@section Scripts {
+<script>
+function fmtSpan(ts) {
+ if (!ts) return '-';
+ var parts = String(ts).split(':');
+ if (parts.length >=2) { return parts[0].padStart(2, '0') + ':' + parts[1].padStart(2, '0'); }
+ return String(ts);
+}
+async function loadContact() {
+ try {
+ const res = await fetch('/api/rentalinfo', { credentials: 'include' });
+ if (!res.ok) throw new Error('Nie udało się pobrać danych kontaktowych');
+ const list = await res.json();
+ const info = Array.isArray(list) && list.length ? list[0] : null;
+ const el = document.getElementById('contactInfo');
+ if (!info) { el.innerHTML = '<p>Brak danych wypożyczalni.</p>'; return; }
+ const address = info.address ?? info.Address;
+ const phone = info.phoneNumber ?? info.PhoneNumber;
+ const email = info.email ?? info.Email;
+ const open = fmtSpan(info.openHour ?? info.OpenHour);
+ const close = fmtSpan(info.closeHour ?? info.CloseHour);
+ const days = info.openDays ?? info.OpenDays;
+ el.innerHTML = `
+ <div class="contact-item">📍 <strong>Adres</strong><div class="contact-value">${address || '-'}</div></div>
+ <div class="contact-item">📞 <strong>Telefon</strong><div class="contact-value">${phone || '-'}</div></div>
+ <div class="contact-item">✉️ <strong>Email</strong><div class="contact-value">${email || '-'}</div></div>
+ <div class="contact-item">⏰ <strong>Godziny pracy</strong><div class="contact-value">${open || '-'} — ${close || '-'}</div></div>
+ <div class="contact-item">📅 <strong>Dni otwarcia</strong><div class="contact-value">${days || '-'}</div></div>`;
+ } catch (err) {
+ document.getElementById('contactInfo').innerHTML = '<p class="error">' + (err.message || 'Błąd pobierania danych') + '</p>';
+ }
+}
+loadContact();
+</script>
+}

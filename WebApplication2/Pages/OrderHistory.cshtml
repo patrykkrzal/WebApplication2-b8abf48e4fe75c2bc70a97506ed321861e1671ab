@@ -1,0 +1,164 @@
+@page "/OrderHistory.html"
+@{
+ ViewData["Title"] = "Historia zamówieñ";
+}
+
+<style>
+ .order-box {
+ background: rgba(255,255,255,.08);
+ border:1px solid rgba(255,255,255,.2);
+ border-radius:10px;
+ padding: .75rem;
+ margin-bottom: .7rem;
+ }
+
+ .order-items {
+ font-size: .8rem;
+ margin-top: .4rem;
+ line-height:1.25;
+ }
+
+ .order-group {
+ font-size: .8rem;
+ margin-top: .3rem;
+ }
+
+ .status-badge {
+ display: inline-block;
+ padding: .25rem .55rem;
+ border-radius:14px;
+ font-size: .7rem;
+ font-weight:600;
+ letter-spacing: .5px;
+ }
+
+ .status-pending { background: #f39c12; color: #fff; }
+ .status-owned { background: #2980b9; color: #fff; }
+ .status-finished { background: #27ae60; color: #fff; }
+ .status-deleted { background: #7f8c8d; color: #fff; }
+
+ .order-title { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.4rem; }
+
+ .order-items-summary { font-size:.8rem; margin-top:.45rem; color: rgba(255,255,255,.85); border-top:1px dashed rgba(255,255,255,.2); padding-top:.4rem; }
+ .due { font-size:.8rem; opacity:.9 }
+</style>
+
+<h1 class="winter-title">?? Historia zamówieñ</h1>
+<div class="content-section">
+ <div class="frost-effect">
+ <div id="orders" class="mt-3"></div>
+ </div>
+</div>
+
+@section Scripts {
+<script>
+ async function loadOrders() {
+ const el = document.getElementById('orders');
+ try {
+ const res = await fetch('/api/orders', { credentials: 'include' });
+ if (!res.ok) {
+ el.textContent = 'Nie mo¿na pobraæ zamówieñ.';
+ return;
+ }
+
+ const list = await res.json();
+ if (!Array.isArray(list) || !list.length) {
+ el.textContent = 'Brak zamówieñ.';
+ return;
+ }
+
+ el.innerHTML = list.map(o => renderOrder(o)).join('');
+ }
+ catch (err) {
+ el.textContent = 'B³¹d: ' + (err.message || err);
+ }
+ }
+
+ function deriveStatus(o) {
+ if (o.Was_Rejected || o.was_Rejected) return 'Usuniêto';
+
+ let status = o.Status || o.status || '';
+ if (status) return status;
+
+ const wasReturned = o.Was_It_Returned || o.was_It_Returned;
+ const items = o.Items || o.items || [];
+
+ const anyOutReserved = items.some(i =>
+ ((i.Is_In_Werehouse === false) || (i.is_In_Werehouse === false)) &&
+ ((i.Is_Reserved === true) || (i.is_Reserved === true))
+ );
+
+ if (wasReturned) return 'Zakoñczona realizacja';
+ if (anyOutReserved) return 'Do oddania';
+
+ return 'W trakcie realizacji';
+ }
+
+ function buildItemsSummary(o) {
+ const grouped = o.ItemsGrouped ?? o.itemsGrouped ?? [];
+ const itemsArr = o.Items ?? o.items ?? [];
+ let names = [];
+
+ if (Array.isArray(grouped) && grouped.length) {
+ names = grouped.map(g => `${g.Type || g.type} ${g.Size || g.size}`);
+ }
+ else if (Array.isArray(itemsArr) && itemsArr.length) {
+ names = itemsArr.map(i => `${i.Type || i.type} ${i.Size || i.size}`);
+ }
+ else {
+ const rentedTxt = o.Rented_Items ?? o.rented_Items ?? o.rented_items ?? '';
+ if (rentedTxt) names = [rentedTxt];
+ }
+
+ const uniq = [...new Set(names.filter(Boolean))];
+ return uniq.join(', ');
+ }
+
+ function renderOrder(o) {
+ const id = o.Id ?? o.id;
+ const price = Number(o.Price ?? o.price ??0).toFixed(2);
+
+ const dateRaw = o.OrderDate ?? o.orderDate;
+ const d = dateRaw ? new Date(dateRaw) : null;
+ const dateStr = d && !isNaN(d.getTime()) ? d.toLocaleString('pl-PL') : '';
+
+ const dueRaw = o.DueDate ?? o.dueDate;
+ const due = dueRaw ? new Date(dueRaw) : null;
+ const dueStr = due && !isNaN(d.getTime()) ? due.toLocaleDateString('pl-PL') : '';
+
+ const statusText = deriveStatus(o);
+ const lower = statusText.toLowerCase();
+
+ const badgeClass =
+ lower.includes('usun') ? 'status-deleted' :
+ lower.includes('oddania') ? 'status-owned' :
+ lower.includes('zakoñcz') ? 'status-finished' :
+ 'status-pending';
+
+ const itemsSummary = buildItemsSummary(o);
+ const basketText = o.Rented_Items ?? o.rented_Items ?? o.rented_items ?? '';
+ const showSummary = !basketText;
+
+ return `
+ <div class='order-box'>
+ <div class='order-title'>
+ <strong>Zamówienie #${id}</strong>
+ <span class='status-badge ${badgeClass}'>${statusText}</span>
+ </div>
+
+ <div>
+ Data: ${dateStr} | Suma: ${price} z³
+ ${dueStr ? `<span class='due'>| Termin zwrotu: ${dueStr}</span>` : ''}
+ </div>
+
+ ${basketText ? `<div class='order-group'><em>Z koszyka:</em> ${basketText}</div>` : ''}
+ ${showSummary && itemsSummary
+ ? `<div class='order-items order-items-summary'>Wypo¿yczone przedmioty: ${itemsSummary}</div>`
+ : ''}
+ </div>
+ `;
+ }
+
+ document.addEventListener('DOMContentLoaded', loadOrders);
+</script>
+}

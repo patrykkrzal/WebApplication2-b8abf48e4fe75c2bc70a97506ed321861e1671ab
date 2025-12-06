@@ -59,6 +59,9 @@ public class Program
             o.JsonSerializerOptions.DictionaryKeyPolicy = null;
         });
 
+        // Add Razor Pages support so Razor Pages in wwwroot or Pages folder will be served
+        builder.Services.AddRazorPages();
+
         builder.Services.AddScoped<Seed>();
         builder.Services.AddDbContext<DataContext>(options =>
             options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -157,10 +160,14 @@ public class Program
         app.UseHttpsRedirection();
         app.UseDefaultFiles();
         app.UseStaticFiles();
+        app.UseRouting();
         app.UseAuthentication();
         app.UseAuthorization();
         app.MapControllers();
         app.MapIdentityApi<User>();
+
+        // Map Razor Pages so .cshtml Razor Pages are served
+        app.MapRazorPages();
 
         app.Run();
     }

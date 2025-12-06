@@ -1,0 +1,91 @@
+﻿@{
+    Layout = null;
+}
+@* Główny layout aplikacji *@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Rent</title>
+    <link rel="stylesheet" href="/css/site.css" />
+    <link rel="stylesheet" href="/css/equipment.css" />
+</head>
+<body>
+    <header>
+ <div class="buttons-top-right">
+ <a class="winter-button" href="/">☃️ Menu</a>
+ <a class="winter-button" href="/Equipment.html">🛷 Sprzęt</a>
+ <details class="user-panel disabled">
+ <summary class="winter-button">👤 Panel użytkownika</summary>
+ <div class="user-panel-menu">
+ <a class="winter-button" href="/OrderHistory.html">📜 Historia zamówień</a>
+ <a class="winter-button" href="/UserData.html">👤 Dane użytkownika</a>
+ <a class="winter-button" href="/WorkerPanel.html">🛠️ Panel pracownika</a>
+ <a class="winter-button" href="/AdminPanel.html">🔧 Panel administratora</a>
+ <a class="winter-button" href="/AddOrDeleteItem.html">➕ Dodaj sprzęt</a>
+ </div>
+ </details>
+ <a class="winter-button" href="/Kontakt.html">✉️ Kontakt</a>
+ <a class="winter-button" href="/Basket.html">🧺 Koszyk</a>
+ <a class="winter-button" href="/Login.html">🔐 Logowanie</a>
+ </div>
+ </header>
+
+    <main>
+        <div class="content-section">
+            <div class="frost-effect">
+                @RenderBody()
+            </div>
+        </div>
+    </main>
+
+    <footer></footer>
+
+    <script>
+    (function(){
+        const authState = { user: null, roles: [], isAuthenticated: false };
+
+        async function getMe(){
+            try{
+                let res = await fetch('/api/auth/me', { credentials: 'include' });
+                if (!res.ok) res = await fetch('/api/users/me', { credentials: 'include' });
+                if (!res.ok) return null;
+                return await res.json();
+            } catch { return null; }
+        }
+
+        function setUserPanelDisabled(disabled){
+            document.querySelectorAll('.user-panel').forEach(el => el.classList.toggle('disabled', disabled));
+        }
+
+        function applyRoleVisibility(){
+            document.querySelectorAll('[data-show-when-auth="true"]').forEach(el => el.style.display = authState.isAuthenticated ? '' : 'none');
+            document.querySelectorAll('[data-hide-when-auth="true"]').forEach(el => el.style.display = authState.isAuthenticated ? 'none' : '');
+            setUserPanelDisabled(!authState.isAuthenticated);
+        }
+
+        async function initAuth(){
+            const me = await getMe();
+            if (me && (Array.isArray(me.Roles) || Array.isArray(me.roles))){
+                authState.user = me;
+                authState.roles = (me.Roles || me.roles).map(r => String(r).toLowerCase());
+                authState.isAuthenticated = true;
+            }
+            window.auth = {
+                get user(){ return authState.user; },
+                get roles(){ return authState.roles; },
+                get isAuthenticated(){ return authState.isAuthenticated; },
+                hasAnyRole: (...roles) => authState.isAuthenticated && roles.map(r => String(r).toLowerCase()).some(r => authState.roles.includes(r))
+            };
+            applyRoleVisibility();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => initAuth());
+        window.__rent = window.__rent || {}; window.__rent.apiBase = window.__rent.apiBase || '';
+    })();
+    </script>
+
+    @RenderSection("Scripts", required: false)
+</body>
+</html>

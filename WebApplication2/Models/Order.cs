@@ -18,7 +18,6 @@ namespace Rent.Models
         [Required]
         public decimal Price { get; set; }
 
-  
         public decimal? BasePrice { get; set; }
         public int? Days { get; set; }
         public int? ItemsCount { get; set; }
@@ -32,6 +31,7 @@ namespace Rent.Models
         public ICollection<OrderedItem> OrderedItems { get; set; } = new List<OrderedItem>();
 
         public User? User { get; set; }
+        public string? UserId { get; set; }
 
         public RentalInfo? RentalInfo { get; set; }
     }

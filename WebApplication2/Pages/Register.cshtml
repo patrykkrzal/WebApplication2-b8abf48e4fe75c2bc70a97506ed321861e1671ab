@@ -1,0 +1,102 @@
+@page "/Register.html"
+@{
+ ViewData["Title"] = "Rejestracja u¿ytkownika";
+}
+
+<h1 class="winter-title">Rejestracja u¿ytkownika</h1>
+<div class="content-section">
+ <div class="frost-effect">
+ <form id="registerForm" class="form-box" novalidate>
+ <div class="mb-3">
+ <label>
+ Login (UserName)
+ <input type="text" name="UserName" required class="form-control" />
+ </label>
+ </div>
+ <div class="mb-3">
+ <label>
+ Email
+ <input type="email" name="Email" required class="form-control" />
+ </label>
+ </div>
+ <div class="mb-3">
+ <label>
+ Has³o
+ <input type="password" name="Password" required minlength="6" class="form-control" />
+ </label>
+ </div>
+ <div class="row g-3">
+ <div class="col-md-6">
+ <label>
+ Imiê
+ <input type="text" name="FirstName" required class="form-control" />
+ </label>
+ </div>
+ <div class="col-md-6">
+ <label>
+ Nazwisko
+ <input type="text" name="LastName" required class="form-control" />
+ </label>
+ </div>
+ </div>
+ <div class="mb-3 mt-3">
+ <label>
+ Telefon (ContactNumber)
+ <input type="text" name="ContactNumber" required class="form-control" />
+ </label>
+ </div>
+
+ <button type="submit" class="submit-btn">Zarejestruj</button>
+ <div id="registerMsg" class="msg"></div>
+ <div class="alt-link" style="margin-top:.5rem;">Masz ju¿ konto? <a href="/Login.html">Zaloguj siê</a></div>
+ </form>
+ </div>
+</div>
+
+@section Scripts {
+<script>
+(function(){
+ const apiBase = (window.__rent && window.__rent.apiBase) ? window.__rent.apiBase : '';
+
+ function formToObject(form) {
+ const obj = {};
+ new FormData(form).forEach((v, k) => obj[k] = v);
+ Object.keys(obj).forEach(k => { if (obj[k] === '') delete obj[k]; });
+ return obj;
+ }
+
+ async function postJson(url, body) {
+ const res = await fetch(url, {
+ method: 'POST',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify(body),
+ credentials: 'include'
+ });
+
+ let text = await res.text();
+ try { text = JSON.parse(text); } catch {}
+
+ if (!res.ok) throw (typeof text === 'string' ? new Error(text) : new Error(JSON.stringify(text)));
+ return text;
+ }
+
+ document.getElementById('registerForm').addEventListener('submit', async e => {
+ e.preventDefault();
+ const msg = document.getElementById('registerMsg');
+ msg.className = 'msg';
+ msg.textContent = 'Rejestracja...';
+
+ const data = formToObject(e.target);
+ try {
+ await postJson(`${apiBase}/api/Register`, data);
+ msg.className = 'msg success';
+ msg.textContent = 'Rejestracja pomyœlna';
+ e.target.reset();
+ } catch (err) {
+ msg.className = 'msg error';
+ msg.textContent = 'B³¹d: ' + (err.message || err);
+ }
+ });
+})();
+</script>
+}

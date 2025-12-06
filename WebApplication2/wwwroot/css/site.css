@@ -78,7 +78,6 @@ input:focus { outline:none; border-color:var(--accent); box-shadow:0002px rgba(5
 .block-actions .winter-button{ min-width:180px; }
 .split-actions{ display:flex; flex-direction:column; align-items:center; gap:26px; margin-top:22px; }
 .split-col{ width:min(680px,92%); background: linear-gradient(180deg, rgba(12,39,66,0.75), rgba(12,39,66,0.55)); border:2px solid #1e4a7a; border-radius:18px; padding:20px; box-shadow:06px18px rgba(0,0,0,0.35); text-align:center; transition: background .3s, transform .25s, box-shadow .3s, border-color .3s; }
-.split-col h2, .split-col p{ margin-left:auto; margin-right:auto; }
 /* Hover efekt (naprawiony spacing wartoœci) */
 .split-col.clickable-block{cursor:pointer;}
 .split-col.clickable-block:hover{ background:linear-gradient(180deg, rgba(12,39,66,0.88), rgba(12,39,66,0.68)); border-color:#3399ff; box-shadow:012px28px rgba(0,0,0,0.5); transform:translateY(-6px); }

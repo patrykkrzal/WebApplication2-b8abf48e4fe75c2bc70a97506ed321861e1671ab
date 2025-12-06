@@ -1,0 +1,69 @@
+@page "/Login.html"
+@{
+ ViewData["Title"] = "Logowanie";
+}
+
+<h1 class="winter-title">?? Logowanie</h1>
+<div class="content-section">
+ <div class="frost-effect">
+ <form id="loginForm" class="form-box" novalidate>
+ <div class="mb-3">
+ <label>
+ Email
+ <input type="text" name="Email" required class="form-control" />
+ </label>
+ </div>
+ <div class="mb-3">
+ <label>
+ Has³o
+ <input type="password" name="Password" required class="form-control" />
+ </label>
+ </div>
+ <button type="submit" class="submit-btn">Zaloguj</button>
+ <div id="loginMsg" class="msg"></div>
+ <div class="alt-link" data-hide-when-auth="true" style="margin-top:.6rem;">
+ Nie masz konta? <a href="/Register.html">Zarejestruj siê</a>
+ </div>
+ </form>
+ </div>
+</div>
+
+@section Scripts {
+<script>
+(function(){
+ const form = document.getElementById('loginForm');
+ const msg = document.getElementById('loginMsg');
+ const apiBase = (window.__rent && window.__rent.apiBase) ? window.__rent.apiBase : '';
+
+ form.addEventListener('submit', async e => {
+ e.preventDefault();
+ msg.className = 'msg';
+ msg.textContent = 'Logowanie...';
+
+ const data = Object.fromEntries(new FormData(form));
+
+ try {
+ const res = await fetch(`${apiBase}/api/auth/login`, {
+ method: 'POST',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify(data),
+ credentials: 'include'
+ });
+
+ let text = await res.text();
+ try { text = JSON.parse(text); } catch {}
+
+ if (!res.ok) throw (typeof text === 'string' ? new Error(text) : new Error(JSON.stringify(text)));
+
+ msg.className = 'msg success';
+ msg.textContent = 'Logowanie pomyœlne';
+ // redirect to home
+ window.location.href = '/';
+ } catch (err) {
+ msg.className = 'msg error';
+ msg.textContent = 'B³¹d: ' + (err.message || err);
+ }
+ });
+})();
+</script>
+}
