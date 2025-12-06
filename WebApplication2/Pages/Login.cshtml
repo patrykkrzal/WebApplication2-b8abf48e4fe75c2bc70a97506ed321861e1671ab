@@ -1,9 +1,9 @@
-@page "/Login.html"
+Ôªø@page "/Login.html"
 @{
  ViewData["Title"] = "Logowanie";
 }
 
-<h1 class="winter-title">?? Logowanie</h1>
+<h1 class="winter-title">üîê Logowanie</h1>
 <div class="content-section">
  <div class="frost-effect">
  <form id="loginForm" class="form-box" novalidate>
@@ -15,14 +15,14 @@
  </div>
  <div class="mb-3">
  <label>
- Has≥o
+ Has≈Ço
  <input type="password" name="Password" required class="form-control" />
  </label>
  </div>
  <button type="submit" class="submit-btn">Zaloguj</button>
  <div id="loginMsg" class="msg"></div>
  <div class="alt-link" data-hide-when-auth="true" style="margin-top:.6rem;">
- Nie masz konta? <a href="/Register.html">Zarejestruj siÍ</a>
+ Nie masz konta? <a href="/Register.html">Zarejestruj siƒô</a>
  </div>
  </form>
  </div>
@@ -56,12 +56,12 @@
  if (!res.ok) throw (typeof text === 'string' ? new Error(text) : new Error(JSON.stringify(text)));
 
  msg.className = 'msg success';
- msg.textContent = 'Logowanie pomyúlne';
+ msg.textContent = 'Logowanie pomy≈õlne';
  // redirect to home
  window.location.href = '/';
  } catch (err) {
  msg.className = 'msg error';
- msg.textContent = 'B≥πd: ' + (err.message || err);
+ msg.textContent = 'B≈ÇƒÖd: ' + (err.message || err);
  }
  });
 })();

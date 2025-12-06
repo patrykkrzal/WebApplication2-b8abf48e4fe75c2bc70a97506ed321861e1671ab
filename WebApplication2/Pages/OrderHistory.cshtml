@@ -1,6 +1,6 @@
-@page "/OrderHistory.html"
+ï»¿@page "/OrderHistory.html"
 @{
- ViewData["Title"] = "Historia zamówieñ";
+ ViewData["Title"] = "Historia zamÃ³wieÅ„";
 }
 
 <style>
@@ -43,7 +43,7 @@
  .due { font-size:.8rem; opacity:.9 }
 </style>
 
-<h1 class="winter-title">?? Historia zamówieñ</h1>
+<h1 class="winter-title">ðŸ“œ Historia zamÃ³wieÅ„</h1>
 <div class="content-section">
  <div class="frost-effect">
  <div id="orders" class="mt-3"></div>
@@ -57,25 +57,25 @@
  try {
  const res = await fetch('/api/orders', { credentials: 'include' });
  if (!res.ok) {
- el.textContent = 'Nie mo¿na pobraæ zamówieñ.';
+ el.textContent = 'Nie moÅ¼na pobraÄ‡ zamÃ³wieÅ„.';
  return;
  }
 
  const list = await res.json();
  if (!Array.isArray(list) || !list.length) {
- el.textContent = 'Brak zamówieñ.';
+ el.textContent = 'Brak zamÃ³wieÅ„.';
  return;
  }
 
  el.innerHTML = list.map(o => renderOrder(o)).join('');
  }
  catch (err) {
- el.textContent = 'B³¹d: ' + (err.message || err);
+ el.textContent = 'BÅ‚Ä…d: ' + (err.message || err);
  }
  }
 
  function deriveStatus(o) {
- if (o.Was_Rejected || o.was_Rejected) return 'Usuniêto';
+ if (o.Was_Rejected || o.was_Rejected) return 'UsuniÄ™to';
 
  let status = o.Status || o.status || '';
  if (status) return status;
@@ -88,7 +88,7 @@
  ((i.Is_Reserved === true) || (i.is_Reserved === true))
  );
 
- if (wasReturned) return 'Zakoñczona realizacja';
+ if (wasReturned) return 'ZakoÅ„czona realizacja';
  if (anyOutReserved) return 'Do oddania';
 
  return 'W trakcie realizacji';
@@ -132,7 +132,7 @@
  const badgeClass =
  lower.includes('usun') ? 'status-deleted' :
  lower.includes('oddania') ? 'status-owned' :
- lower.includes('zakoñcz') ? 'status-finished' :
+ lower.includes('zakoÅ„cz') ? 'status-finished' :
  'status-pending';
 
  const itemsSummary = buildItemsSummary(o);
@@ -142,18 +142,18 @@
  return `
  <div class='order-box'>
  <div class='order-title'>
- <strong>Zamówienie #${id}</strong>
+ <strong>ZamÃ³wienie #${id}</strong>
  <span class='status-badge ${badgeClass}'>${statusText}</span>
  </div>
 
  <div>
- Data: ${dateStr} | Suma: ${price} z³
+ Data: ${dateStr} | Suma: ${price} zÅ‚
  ${dueStr ? `<span class='due'>| Termin zwrotu: ${dueStr}</span>` : ''}
  </div>
 
  ${basketText ? `<div class='order-group'><em>Z koszyka:</em> ${basketText}</div>` : ''}
  ${showSummary && itemsSummary
- ? `<div class='order-items order-items-summary'>Wypo¿yczone przedmioty: ${itemsSummary}</div>`
+ ? `<div class='order-items order-items-summary'>WypoÅ¼yczone przedmioty: ${itemsSummary}</div>`
  : ''}
  </div>
  `;

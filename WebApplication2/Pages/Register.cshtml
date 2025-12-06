@@ -1,9 +1,9 @@
-@page "/Register.html"
+ï»¿@page "/Register.html"
 @{
- ViewData["Title"] = "Rejestracja u¿ytkownika";
+ ViewData["Title"] = "Rejestracja uÅ¼ytkownika";
 }
 
-<h1 class="winter-title">Rejestracja u¿ytkownika</h1>
+<h1 class="winter-title">ğŸ“ Rejestracja uÅ¼ytkownika</h1>
 <div class="content-section">
  <div class="frost-effect">
  <form id="registerForm" class="form-box" novalidate>
@@ -21,14 +21,14 @@
  </div>
  <div class="mb-3">
  <label>
- Has³o
+ HasÅ‚o
  <input type="password" name="Password" required minlength="6" class="form-control" />
  </label>
  </div>
  <div class="row g-3">
  <div class="col-md-6">
  <label>
- Imiê
+ ImiÄ™
  <input type="text" name="FirstName" required class="form-control" />
  </label>
  </div>
@@ -48,7 +48,7 @@
 
  <button type="submit" class="submit-btn">Zarejestruj</button>
  <div id="registerMsg" class="msg"></div>
- <div class="alt-link" style="margin-top:.5rem;">Masz ju¿ konto? <a href="/Login.html">Zaloguj siê</a></div>
+ <div class="alt-link" style="margin-top:.5rem;">Masz juÅ¼ konto? <a href="/Login.html">Zaloguj siÄ™</a></div>
  </form>
  </div>
 </div>
@@ -74,7 +74,7 @@
  });
 
  let text = await res.text();
- try { text = JSON.parse(text); } catch {}
+ try { text = JSON.parse(text); } catch { }
 
  if (!res.ok) throw (typeof text === 'string' ? new Error(text) : new Error(JSON.stringify(text)));
  return text;
@@ -90,11 +90,11 @@
  try {
  await postJson(`${apiBase}/api/Register`, data);
  msg.className = 'msg success';
- msg.textContent = 'Rejestracja pomyœlna';
+ msg.textContent = 'Rejestracja pomyÅ›lna';
  e.target.reset();
  } catch (err) {
  msg.className = 'msg error';
- msg.textContent = 'B³¹d: ' + (err.message || err);
+ msg.textContent = 'BÅ‚Ä…d: ' + (err.message || err);
  }
  });
 })();

@@ -1,17 +1,17 @@
-@page "/Equipment.html"
+ï»¿@page "/Equipment.html"
 @{
- ViewData["Title"] = "Sprzêt";
+ ViewData["Title"] = "SprzÄ™t";
 }
 
 <link rel="stylesheet" href="/css/equipment.css" />
 
-<h1 class="winter-title">?? Sprzêt</h1>
+<h1 class="winter-title">ðŸŽ¿ SprzÄ™t</h1>
 <div class="equipment-slider">
- <button class="winter-button slider-nav" id="prevSlide">?</button>
+ <button class="winter-button slider-nav" id="prevSlide">â—€</button>
  <div class="slide-viewport">
  <div class="slide-track" id="slideTrack"></div>
  </div>
- <button class="winter-button slider-nav" id="nextSlide">?</button>
+ <button class="winter-button slider-nav" id="nextSlide">â–¶</button>
 </div>
 
 @section Scripts {
@@ -99,9 +99,9 @@
  const arr = sizeMap[sizeKey];
  const available = arr.filter(x => (x.is_In_Werehouse || x.Is_In_Werehouse) && !(x.is_Reserved || x.Is_Reserved)).length;
  const price = arr[0].price || arr[0].Price;
- return `<option value='${sizeKey}' data-ids='${arr.map(a => a.id || a.Id).join(',')}' data-available='${available}' data-price='${price}' ${idx ===0 ? 'selected' : ''}>${sizeKey} (dostêpne: ${available}) – ${(Number(price) ||0).toFixed(2)} z³</option>`;
+ return `<option value='${sizeKey}' data-ids='${arr.map(a => a.id || a.Id).join(',')}' data-available='${available}' data-price='${price}' ${idx ===0 ? 'selected' : ''}>${sizeKey} (dostÄ™pne: ${available}) â€” ${(Number(price) ||0).toFixed(2)} zÅ‚</option>`;
  }).join('');
- overlay.innerHTML = `\n <div class='overlay-top'>\n <select class='ovSizeSel'>${sizeOptionsHtml}</select>\n <div class='qty-box'>\n <button type='button' class='ovMinus'>?</button>\n <span class='ovQty qty-number'>1</span>\n <button type='button' class='ovPlus'>?</button>\n </div>\n </div>\n <div class='add-row'>\n <div class='price-line'>Cena: <span class='ovUnitPrice'>0,00</span> z³</div>\n <button type='button' class='ovAdd'>? Dodaj</button>\n </div>\n <div class='add-info ovInfo'>Dodano do koszyka.</div>`;
+ overlay.innerHTML = `\n <div class='overlay-top'>\n <select class='ovSizeSel'>${sizeOptionsHtml}</select>\n <div class='qty-box'>\n <button type='button' class='ovMinus'>-</button>\n <span class='ovQty qty-number'>1</span>\n <button type='button' class='ovPlus'>+</button>\n </div>\n </div>\n <div class='add-row'>\n <div class='price-line'>Cena: <span class='ovUnitPrice'>0,00</span> zÅ‚</div>\n <button type='button' class='ovAdd'>âž• Dodaj</button>\n </div>\n <div class='add-info ovInfo'>Dodano do koszyka.</div>`;
  bindOverlayHandlers();
  updateOverlayPrice();
  }
@@ -148,12 +148,12 @@
  const type = equipmentSlides[centerIndex].type; const size = sel2.value; const arr = (groupedTypeSize[type] && groupedTypeSize[type][size]) ? groupedTypeSize[type][size] : [];
  avail = arr.filter(x => (x.is_In_Werehouse || x.Is_Werehouse) && !(x.is_Reserved || x.Is_Reserved)).length;
  }
- if (qty > avail) { alert('Brak wystarczaj¹cej iloœci na stanie.'); return; }
+ if (qty > avail) { alert('Brak wystarczajÄ…cej iloÅ›ci na stanie.'); return; }
  const ids = (opt.dataset.ids || '').split(',').filter(Boolean).slice(0, qty).map(x => parseInt(x));
  const type = equipmentSlides[centerIndex].type; const size = opt.value;
  const current = getBasket();
  const existingQty = current.filter(i => String(i.Type || i.type) === String(type) && String(i.Size || i.size) === String(size)).reduce((s, i) => s + (parseInt(i.Quantity || i.qty || i.Qty) ||1),0);
- if (existingQty + qty > avail) { alert(`Nie mo¿na dodaæ wiêcej ni¿ dostêpne. ${type} ${size}: dostêpne ${avail}, ju¿ w koszyku ${existingQty}.`); return; }
+ if (existingQty + qty > avail) { alert(`Nie moÅ¼na dodaÄ‡ wiÄ™cej niÅ¼ dostÄ™pne. ${type} ${size}: dostÄ™pne ${avail}, juÅ¼ w koszyku ${existingQty}.`); return; }
  addToBasket({ Type: type, Size: size, Price: parseFloat((opt.dataset.price || '').replace(',', '.')) ||0, Quantity: qty, EquipmentIds: ids });
  const info = active.querySelector('.ovInfo'); if (info) { info.style.display = 'block'; info.classList.add('added-flash'); setTimeout(() => { info.style.display = 'none'; info.classList.remove('added-flash'); },1200); }
  };

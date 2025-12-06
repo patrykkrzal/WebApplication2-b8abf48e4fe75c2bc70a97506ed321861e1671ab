@@ -1,32 +1,32 @@
-@page "/Basket.html"
+Ôªø@page "/Basket.html"
 @{
  ViewData["Title"] = "Koszyk";
 }
-<h1 class="winter-title">?? Koszyk</h1>
+<h1 class="winter-title">üß∫ Koszyk</h1>
 <div id="basketItems" class="contact-info"></div>
 <div class="block-actions">
- <button class="winter-button" id="clearBasket">WyczyúÊ koszyk</button>
+ <button class="winter-button" id="clearBasket">Wyczy≈õƒá koszyk</button>
 </div>
 <div class="form-box">
  <label>
- Liczba dni wypoøyczenia
+ Liczba dni wypo≈ºyczenia
  <input type="number" id="rentDays" min="1" value="1" />
  </label>
  <div class="contact-item">
  <strong>Suma podstawowa</strong>
- <div class="contact-value" id="baseTotal">0 z≥</div>
+ <div class="contact-value" id="baseTotal">0 z≈Ç</div>
  </div>
  <div class="contact-item">
- <strong>£πczna zniøka</strong>
+ <strong>≈ÅƒÖczna zni≈ºka</strong>
  <div class="contact-value" id="discountPct">0%</div>
  </div>
  <div class="contact-item">
- <strong>Suma z dniami i zniøkπ</strong>
- <div class="contact-value" id="finalTotal">0 z≥</div>
+ <strong>Suma z dniami i zni≈ºkƒÖ</strong>
+ <div class="contact-value" id="finalTotal">0 z≈Ç</div>
  </div>
  <div class="contact-item warn" id="stockWarning" style="display:none"></div>
  <div class="block-actions">
- <button class="winter-button" id="placeOrder" data-show-when-auth="true">Z≥Ûø zamÛwienie</button>
+ <button class="winter-button" id="placeOrder" data-show-when-auth="true">Z≈Ç√≥≈º zam√≥wienie</button>
  </div>
 </div>
 
@@ -97,15 +97,15 @@ function renderBasket() {
  el.innerHTML = basket
  .map(i =>
  `<div class="contact-item">
- <strong>${name(i)} ◊ ${qty(i)}</strong>
- <div class="contact-value">${(price(i) * qty(i)).toFixed(2)} z≥</div>
+ <strong>${name(i)} √ó ${qty(i)}</strong>
+ <div class="contact-value">${(price(i) * qty(i)).toFixed(2)} z≈Ç</div>
  </div>`
  )
  .join('');
  }
 
  const baseBeforeDiscount = baseItemsTotal() * getDays();
- qs('#baseTotal').textContent = baseBeforeDiscount.toFixed(2) + ' z≥';
+ qs('#baseTotal').textContent = baseBeforeDiscount.toFixed(2) + ' z≈Ç';
 
  preview();
 }
@@ -135,7 +135,7 @@ async function preview() {
  const final = Number(d.Price) ||0;
 
  qs('#discountPct').textContent = Math.round(pct *100) + '%';
- qs('#finalTotal').textContent = final.toFixed(2) + ' z≥';
+ qs('#finalTotal').textContent = final.toFixed(2) + ' z≈Ç';
 
  const placeBtn = qs('#placeOrder');
 
@@ -170,13 +170,13 @@ async function placeOrder() {
 
  if (!res.ok) {
  const txt = await res.text();
- throw new Error(txt || 'Nie moøna z≥oøyÊ zamÛwienia');
+ throw new Error(txt || 'Nie mo≈ºna z≈Ço≈ºyƒá zam√≥wienia');
  }
 
  const d = await res.json();
 
  alert(
- `Cena: ${(Number(d.Price) ||0).toFixed(2)} z≥ za ${getDays()} dni, zniøka: ${Math.round((Number(d.DiscountPct) ||0) *100)}%`
+ `Cena: ${(Number(d.Price) ||0).toFixed(2)} z≈Ç za ${getDays()} dni, zni≈ºka: ${Math.round((Number(d.DiscountPct) ||0) *100)}%`
  );
 
  localStorage.removeItem('basket');
@@ -184,7 +184,7 @@ async function placeOrder() {
 
  renderBasket();
  } catch (e) {
- alert('B≥πd zamÛwienia: ' + e.message);
+ alert('B≈ÇƒÖd zam√≥wienia: ' + e.message);
  }
 }
 

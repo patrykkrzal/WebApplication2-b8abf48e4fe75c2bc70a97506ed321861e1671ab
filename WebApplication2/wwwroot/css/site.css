@@ -25,8 +25,9 @@ body::before { content:""; position: fixed; inset:0; background: rgba(0,0,0,var(
  letter-spacing: .5px;
  transition: .2s;
  box-shadow:0002px rgba(51,153,255,.15) inset;
+ text-decoration: none; /* remove underline on anchor links styled as buttons */
 }
-.winter-button:hover { background:#12365d; color:#fff; }
+.winter-button:hover { background:#12365d; color:#fff; text-decoration: none; }
 
 /* Content wrapper centered below the buttons */
 .content-section { 
