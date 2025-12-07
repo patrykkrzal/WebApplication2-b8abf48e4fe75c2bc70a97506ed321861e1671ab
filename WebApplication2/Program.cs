@@ -11,6 +11,9 @@ using System.IO;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http;
 using Rent.DTO;
+using Microsoft.Extensions.FileProviders;
+using Rent.Services;
+using Microsoft.Extensions.Caching.Memory;
 
 public class Program
 {
@@ -65,6 +68,10 @@ public class Program
         builder.Services.AddScoped<Seed>();
         builder.Services.AddDbContext<DataContext>(options =>
             options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+        // caching and price resolver
+        builder.Services.AddMemoryCache();
+        builder.Services.AddScoped<IPriceResolver, EfPriceResolver>();
 
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen(c =>
@@ -160,6 +167,19 @@ public class Program
         app.UseHttpsRedirection();
         app.UseDefaultFiles();
         app.UseStaticFiles();
+
+        // Serve static files from the Pages folder so frontend assets placed there are accessible.
+        // This allows placing CSS/JS/images inside the Pages folder while still serving them as static files.
+        var pagesStaticPath = Path.Combine(app.Environment.ContentRootPath, "Pages");
+        if (Directory.Exists(pagesStaticPath))
+        {
+            app.UseStaticFiles(new StaticFileOptions
+            {
+                FileProvider = new PhysicalFileProvider(pagesStaticPath),
+                RequestPath = ""
+            });
+        }
+
         app.UseRouting();
         app.UseAuthentication();
         app.UseAuthorization();

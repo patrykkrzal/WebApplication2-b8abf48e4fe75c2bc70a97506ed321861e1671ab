@@ -12,7 +12,7 @@ using Rent.Data;
 namespace Rent.Migrations
 {
     [DbContext(typeof(DataContext))]
-    [Migration("20251203110549_init")]
+    [Migration("20251206235825_init")]
     partial class init
     {
         /// <inheritdoc />
@@ -173,6 +173,7 @@ namespace Rent.Migrations
                         .HasColumnType("bit");
 
                     b.Property<decimal>("Price")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int?>("RentalInfoId")
@@ -191,6 +192,32 @@ namespace Rent.Migrations
                     b.ToTable("Equipment");
                 });
 
+            modelBuilder.Entity("Rent.Models.EquipmentPrice", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Note")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("Price")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("Size")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("EquipmentPrices");
+                });
+
             modelBuilder.Entity("Rent.Models.Order", b =>
                 {
                     b.Property<int>("Id")
@@ -200,6 +227,7 @@ namespace Rent.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<decimal?>("BasePrice")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<DateOnly>("Date_Of_submission")
@@ -215,6 +243,7 @@ namespace Rent.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<decimal>("Price")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int?>("RentalInfoId")
@@ -254,6 +283,7 @@ namespace Rent.Migrations
                         .HasColumnType("int");
 
                     b.Property<decimal>("PriceWhenOrdered")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("Quantity")

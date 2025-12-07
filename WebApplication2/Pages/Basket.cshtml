@@ -42,6 +42,30 @@ const priceMap = {
  Goggles: { Any:55, Universal:55 }
 };
 
+// live lookup filled from API availability (UnitPrice)
+let priceLookup = {}; // priceLookup[type][size] = number
+
+async function loadPricesFromApi() {
+ try {
+ const res = await fetch('/api/equipment/availability', { credentials: 'include' });
+ if (!res.ok) return;
+ const list = await res.json();
+ priceLookup = {};
+ list.forEach(p => {
+ const t = String(p.Type || p.type || '').trim();
+ const s = String(p.Size || p.size || '').trim();
+ const price = Number(p.UnitPrice ?? p.UnitPrice ?? p.UnitPrice ?? p.UnitPrice ?? p.UnitPrice ?? p.UnitPrice || p.UnitPrice || p.UnitPrice || p.UnitPrice || p.UnitPrice) || Number(p.UnitPrice) || Number(p.UnitPrice) || Number(p.UnitPrice) || Number(p.UnitPrice) || Number(p.UnitPrice) || Number(p.UnitPrice) || Number(p.UnitPrice) || Number(p.UnitPrice) || Number(p.UnitPrice) || p.UnitPrice || p.UnitPrice || p.UnitPrice || p.UnitPrice || p.UnitPrice || p.UnitPrice || p.UnitPrice ||0;
+ // more simply
+ const unit = Number(p.UnitPrice ?? p.unitPrice ?? p.UnitPrice ?? p.UnitPrice ?? p.UnitPrice);
+ if (!t) return;
+ priceLookup[t] = priceLookup[t] || {};
+ priceLookup[t][s] = Number.isFinite(unit) && unit >0 ? unit : (Number.isFinite(p.Price) ? p.Price : (Number.isFinite(p.price) ? p.price : undefined));
+ });
+ } catch (e) {
+ // ignore
+ }
+}
+
 const basket = JSON.parse(localStorage.getItem('basket') || '[]');
 
 const qs = sel => document.querySelector(sel);
@@ -58,11 +82,20 @@ const price = i => {
  const p = Number(i.Price ?? i.price);
  if (Number.isFinite(p) && p >0) return p;
 
- const t = priceMap[(i.Type ?? i.type)];
- if (!t) return0;
-
+ const t = (i.Type ?? i.type);
  const s = (i.Size ?? i.size);
- return (s && t[s] !== undefined) ? t[s] : (t.Any ||0);
+ if (t && priceLookup[t]) {
+ // exact size
+ if (s && priceLookup[t][s] !== undefined) return priceLookup[t][s];
+ // Any / Universal
+ if (priceLookup[t]['Any'] !== undefined) return priceLookup[t]['Any'];
+ if (priceLookup[t]['Universal'] !== undefined) return priceLookup[t]['Universal'];
+ }
+
+ const tm = priceMap[(i.Type ?? i.type)];
+ if (!tm) return0;
+ const ss = (i.Size ?? i.size);
+ return (ss && tm[ss] !== undefined) ? tm[ss] : (tm.Any ||0);
 };
 
 const baseItemsTotal = () =>
@@ -197,6 +230,6 @@ qs('#clearBasket').addEventListener('click', () => {
 qs('#placeOrder').addEventListener('click', placeOrder);
 qs('#rentDays').addEventListener('input', () => renderBasket());
 
-document.addEventListener('DOMContentLoaded', renderBasket);
+document.addEventListener('DOMContentLoaded', async () => { await loadPricesFromApi(); renderBasket(); });
 </script>
 }

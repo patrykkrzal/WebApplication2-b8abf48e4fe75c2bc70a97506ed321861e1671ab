@@ -1,26 +1,62 @@
-@page "/AddOrDeleteItem.html"
+﻿@page "/AddOrDeleteItem.html"
 @{
- ViewData["Title"] = "Dodaj / Usu� sprz�t";
+ ViewData["Title"] = "Dodaj / Usuń sprzęt";
 }
 
-<h1 class="winter-title">Zarz�dzanie sprz�tem</h1>
-<p class="mb-3">Dodaj lub usu� pojedyncz� pozycj�. Dost�p tylko dla r�l Admin lub Pracownik.</p>
+<h1 class="winter-title">Zarządzanie sprzętem</h1>
+<p class="mb-3">Dodaj lub usuń pojedynczą pozycję. Dostęp tylko dla ról Admin lub Pracownik.</p>
 
 <div id="roleGuard" class="alert alert-warning" style="display:none">
- Brak uprawnie�. Ta strona jest dost�pna tylko dla u�ytkownik�w z rol� Admin lub Worker.
+ Brak uprawnień. Ta strona jest dostępna tylko dla użytkowników z rolą Admin lub Worker.
 </div>
 
+<!-- Global price setter at the top -->
+<div class="content-section" style="max-width:900px; margin:12px auto; padding:12px;">
+ <div class="form-box">
+ <h2 class="winter-title" style="font-size:1.1rem;">💲 Ustaw globalną cenę</h2>
+ <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+ <label style="display:flex; gap:6px; align-items:center;">Typ
+ <select id="gPriceType" class="form-select">
+ <option value="">-- wybierz --</option>
+ <option value="Skis">Narty</option>
+ <option value="Helmet">Kask</option>
+ <option value="Gloves">Rękawice</option>
+ <option value="Poles">Kijki</option>
+ <option value="Snowboard">Snowboard</option>
+ <option value="Goggles">Gogle</option>
+ </select>
+ </label>
+ <label style="display:flex; gap:6px; align-items:center;">Rozmiar
+ <select id="gPriceSize" class="form-select">
+ <option value="">-- wybierz --</option>
+ <option value="Universal">Uniwersalny</option>
+ <option value="Small">Mały</option>
+ <option value="Medium">Średni</option>
+ <option value="Large">Duży</option>
+ <option value="Xl">XL</option>
+ </select>
+ </label>
+ <label style="display:flex; gap:6px; align-items:center;">Cena
+ <input id="gPriceValue" type="number" step="0.01" min="0" class="form-control" style="width:140px;" />
+ </label>
+ <button id="gPriceSave" class="submit-btn">💾 Zapisz</button>
+ <div id="gPriceMsg" class="msg"></div>
+ </div>
+ </div>
+</div>
+
+<!-- Add/Delete form below -->
 <details class="user-panel" id="addPanel" open>
- <summary class="winter-button" aria-label="Dodaj sprz�t">? / ? Sprz�t</summary>
+ <summary class="winter-button" aria-label="Dodaj sprzęt">➕ / ➖ Sprzęt</summary>
 
  <form id="addItemForm" class="form-box" novalidate style="display:none">
  <div class="mb-3">
- <label for="type">Rodzaj sprz�tu</label>
+ <label for="type">Rodzaj sprzętu</label>
  <select id="type" name="Type" class="form-select" required>
  <option value="">-- wybierz --</option>
  <option value="Skis">Narty</option>
  <option value="Helmet">Kask</option>
- <option value="Gloves">R�kawice</option>
+ <option value="Gloves">Rękawice</option>
  <option value="Poles">Kijki</option>
  <option value="Snowboard">Snowboard</option>
  <option value="Goggles">Gogle</option>
@@ -33,13 +69,23 @@
  <option value="">Najpierw wybierz typ</option>
  </select>
  <div id="sizeHint" class="form-text">
- Dost�pne rozmiary zale�� od wybranego typu i stanu magazynowego.
+ Dostępne rozmiary zależą od wybranego typu i stanu magazynowego.
  </div>
  </div>
 
+ <div class="mb-3">
+ <label for="price">Cena (opcjonalnie, pozostaw puste aby użyć domyślnej)</label>
+ <input id="price" name="Price" type="number" step="0.01" min="0" class="form-control" placeholder="np.120.00" />
+ </div>
+
+ <div class="mb-3">
+ <label for="quantity">Ilość</label>
+ <input id="quantity" name="Quantity" type="number" min="1" value="1" class="form-control" />
+ </div>
+
  <div class="dual-actions">
- <button type="submit" class="submit-btn" id="btnAdd">Dodaj</button>
- <button type="button" class="submit-btn" id="btnDelete" style="background:#aa3333">Usu�</button>
+ <button type="submit" class="submit-btn" id="btnAdd">➕ Dodaj</button>
+ <button type="button" class="submit-btn delete-btn" id="btnDelete">➖ Usuń</button>
  </div>
 
  <div id="msg" class="msg"></div>
@@ -48,183 +94,241 @@
 
 @section Scripts {
  <script>
-    (function(){
-     const apiBase = (window.__rent && window.__rent.apiBase) ? window.__rent.apiBase : '';
+ (function(){
+ const apiBase = (window.__rent && window.__rent.apiBase) ? window.__rent.apiBase : '';
 
-     function toDto() {
-     const type = document.getElementById('type').value;
-     const size = document.getElementById('size').value;
-     return { Type: type, Size: size };
-     }
+ function toDto() {
+ const type = document.getElementById('type').value;
+ const size = document.getElementById('size').value;
+ const priceRaw = document.getElementById('price').value;
+ const qtyRaw = document.getElementById('quantity').value;
+ return { Type: type, Size: size, Price: priceRaw ? parseFloat(priceRaw) : null, Quantity: qtyRaw ? parseInt(qtyRaw) :1 };
+ }
 
-     async function postJson(url, body) {
-     const res = await fetch(url, {
-     method: 'POST',
-     headers: { 'Content-Type': 'application/json' },
-     body: JSON.stringify(body),
-     credentials: 'include'
-     });
+ async function postJson(url, body) {
+ const res = await fetch(url, {
+ method: 'POST',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify(body),
+ credentials: 'include'
+ });
 
-     let text = await res.text();
-     try { text = JSON.parse(text); } catch { }
+ let text = await res.text();
+ try { text = JSON.parse(text); } catch { }
 
-     if (!res.ok)
-     throw (typeof text === 'string' ? new Error(text) : new Error(JSON.stringify(text)));
+ if (!res.ok)
+ throw (typeof text === 'string' ? new Error(text) : new Error(JSON.stringify(text)));
 
-     return text;
-     }
+ return text;
+ }
 
-     async function deleteJson(url, body) {
-     const res = await fetch(url, {
-     method: 'DELETE',
-     headers: { 'Content-Type': 'application/json' },
-     body: JSON.stringify(body),
-     credentials: 'include'
-     });
+ async function deleteJson(url, body) {
+ const res = await fetch(url, {
+ method: 'DELETE',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify(body),
+ credentials: 'include'
+ });
 
-     let text = await res.text();
-     try { text = JSON.parse(text); } catch { }
+ let text = await res.text();
+ try { text = JSON.parse(text); } catch { }
 
-     if (!res.ok)
-     throw (typeof text === 'string' ? new Error(text) : new Error(JSON.stringify(text)));
+ if (!res.ok)
+ throw (typeof text === 'string' ? new Error(text) : new Error(JSON.stringify(text)));
 
-     return text;
-     }
+ return text;
+ }
 
-     async function getMe() {
-     if (window.__rent && typeof window.__rent.getMe === 'function') {
-     try { return await window.__rent.getMe(); } catch { /* fallback */ }
-     }
-     try {
-     let res = await fetch(`${apiBase}/api/Auth/me`, { credentials: 'include' });
-     if (!res.ok) res = await fetch('/api/users/me', { credentials: 'include' });
-     if (!res.ok) return null;
+ async function setGlobalPrice(type, size, price) {
+ return await postJson(`${apiBase}/api/equipment/prices`, { Type: type, Size: size, Price: price });
+ }
 
-     try { return await res.json(); }
-     catch { return null; }
-     } catch { return null; }
-     }
+ async function getMe() {
+ if (window.__rent && typeof window.__rent.getMe === 'function') {
+ try { return await window.__rent.getMe(); } catch { /* fallback */ }
+ }
+ try {
+ let res = await fetch(`${apiBase}/api/Auth/me`, { credentials: 'include' });
+ if (!res.ok) res = await fetch('/api/users/me', { credentials: 'include' });
+ if (!res.ok) return null;
 
-     async function getAvailability() {
-     try {
-     const res = await fetch(`${apiBase}/api/equipment/availability`, { credentials: 'include' });
-     if (!res.ok) return [];
-     return await res.json();
-     } catch { return []; }
-     }
+ try { return await res.json(); }
+ catch { return null; }
+ } catch { return null; }
+ }
 
-     let availabilityByType = {};
-     function buildAvailabilityMap(items) {
-     availabilityByType = {};
-     items.forEach(x => {
-     const t = String(x.Type || '').trim();
-     const s = String(x.Size || '').trim();
-     if (!t || !s) return;
-     (availabilityByType[t] ||= new Set()).add(s);
-     });
-     }
+ async function getAvailability() {
+ try {
+ const res = await fetch(`${apiBase}/api/equipment/availability`, { credentials: 'include' });
+ if (!res.ok) return [];
+ return await res.json();
+ } catch { return []; }
+ }
 
-     const sizeMap = {
-     Skis: ['Small', 'Medium', 'Large'],
-     Snowboard: ['Small', 'Medium', 'Large'],
-     Poles: ['Small', 'Medium', 'Large'],
-     Helmet: ['Small', 'Medium', 'Large'],
-     Gloves: ['Small', 'Medium', 'Large'],
-     Goggles: ['Universal']
-     };
+ let availabilityByType = {};
+ function buildAvailabilityMap(items) {
+ availabilityByType = {};
+ items.forEach(x => {
+ const t = String(x.Type || '').trim();
+ const s = String(x.Size || '').trim();
+ if (!t || !s) return;
+ (availabilityByType[t] ||= new Set()).add(s);
+ });
+ }
 
-     function tSize(sz) {
-     const m = { Small: 'Ma�y', Medium: '�redni', Large: 'Du�y', Universal: 'Uniwersalny' };
-     return m[sz] || sz;
-     }
+ const sizeMap = {
+ Skis: ['Small', 'Medium', 'Large'],
+ Snowboard: ['Small', 'Medium', 'Large'],
+ Poles: ['Small', 'Medium', 'Large'],
+ Helmet: ['Small', 'Medium', 'Large'],
+ Gloves: ['Small', 'Medium', 'Large'],
+ Goggles: ['Universal']
+ };
 
-     function makeOption(value) {
-     const opt = document.createElement('option');
-     opt.value = value;
-     opt.textContent = tSize(value);
-     return opt;
-     }
+ function tSize(sz) {
+ const m = { Small: 'Mały', Medium: 'Średni', Large: 'Duży', Universal: 'Uniwersalny' };
+ return m[sz] || sz;
+ }
 
-     function populateSizesForType(type) {
-     const sizeSelect = document.getElementById('size');
-     sizeSelect.innerHTML = '';
+ function makeOption(value) {
+ const opt = document.createElement('option');
+ opt.value = value;
+ opt.textContent = tSize(value);
+ return opt;
+ }
 
-     const sizes = availabilityByType[type] ? Array.from(availabilityByType[type]) : (sizeMap[type] || ['Small', 'Medium', 'Large']);
-     sizes.forEach(sz => sizeSelect.appendChild(makeOption(sz)));
-     sizeSelect.disabled = false;
-     }
+ function populateSizesForType(type) {
+ const sizeSelect = document.getElementById('size');
+ sizeSelect.innerHTML = '';
 
-     async function ensureRoles() {
-     const me = await getMe();
-     const guard = document.getElementById('roleGuard');
-     const form = document.getElementById('addItemForm');
+ const sizes = availabilityByType[type] ? Array.from(availabilityByType[type]) : (sizeMap[type] || ['Small', 'Medium', 'Large']);
+ if (!sizes || sizes.length ===0) {
+ sizeSelect.appendChild(new Option('Brak dostępnych rozmiarów', ''));
+ sizeSelect.disabled = true;
+ return;
+ }
+ sizes.forEach(sz => sizeSelect.appendChild(makeOption(sz)));
+ sizeSelect.disabled = false;
+ sizeSelect.classList.remove('selected');
+ }
 
-     const hasAccess = me && (Array.isArray(me.Roles) || Array.isArray(me.roles)) && (me.Roles || me.roles).some(r => ['Admin', 'Worker'].includes(r));
+ async function ensureRoles() {
+ const me = await getMe();
+ const guard = document.getElementById('roleGuard');
+ const form = document.getElementById('addItemForm');
 
-     if (!hasAccess) {
-     guard.style.display = 'block';
-     form.style.display = 'none';
-     document.getElementById('addPanel').classList.add('disabled');
-     } else {
-     guard.style.display = 'none';
-     form.style.display = 'block';
-     document.getElementById('addPanel').classList.remove('disabled');
-     }
-     }
+ const hasAccess = me && (Array.isArray(me.Roles) || Array.isArray(me.roles)) && (me.Roles || me.roles).some(r => ['Admin', 'Worker'].includes(r));
 
-     document.getElementById('type').addEventListener('change', e => {
-     const type = e.target.value;
-     const sizeSelect = document.getElementById('size');
+ if (!hasAccess) {
+ guard.style.display = 'block';
+ form.style.display = 'none';
+ document.getElementById('addPanel').classList.add('disabled');
+ } else {
+ guard.style.display = 'none';
+ form.style.display = 'block';
+ document.getElementById('addPanel').classList.remove('disabled');
+ }
+ }
 
-     if (!type) {
-     sizeSelect.innerHTML = '<option value="">Najpierw wybierz typ</option>';
-     sizeSelect.disabled = true;
-     return;
-     }
+ document.getElementById('type').addEventListener('change', e => {
+ const type = e.target.value;
+ const sizeSelect = document.getElementById('size');
 
-     populateSizesForType(type);
-     });
+ if (!type) {
+ sizeSelect.innerHTML = '<option value="">Najpierw wybierz typ</option>';
+ sizeSelect.disabled = true;
+ sizeSelect.classList.remove('selected');
+ return;
+ }
 
-     document.getElementById('addItemForm').addEventListener('submit', async e => {
-     e.preventDefault();
-     const msg = document.getElementById('msg');
-     msg.className = 'msg';
-     msg.textContent = 'Dodawanie...';
-     try {
-     const dto = toDto();
-     const result = await postJson(`${apiBase}/api/equipment/add`, dto);
-     msg.className = 'msg success';
-     msg.textContent = `Dodano: ${result.Type ?? dto.Type} ${result.Size ?? dto.Size}. Cena: ${result.Price}`;
-     e.target.reset();
-     document.getElementById('size').disabled = true;
-     document.getElementById('size').innerHTML = '<option value="">Najpierw wybierz typ</option>';
-     } catch (err) {
-     msg.className = 'msg error';
-     msg.textContent = 'B��d: ' + (err.message || err);
-     }
-     });
+ populateSizesForType(type);
+ });
 
-     document.getElementById('btnDelete').addEventListener('click', async () => {
-     const msg = document.getElementById('msg');
-     msg.className = 'msg';
-     msg.textContent = 'Usuwanie...';
-     try {
-     const dto = toDto();
-     if (!dto.Type || !dto.Size) throw new Error('Wybierz typ i rozmiar');
-     const result = await deleteJson(`${apiBase}/api/equipment/delete`, dto);
-     msg.className = 'msg success';
-     msg.textContent = `Usuni�to: ${dto.Type} ${dto.Size}. Pozosta�o: ${result.Remaining}`;
-     } catch (err) {
-     msg.className = 'msg error';
-     msg.textContent = 'B��d usuwania: ' + (err.message || err);
-     }
-     });
+ document.getElementById('size').addEventListener('change', e => {
+ const sel = e.target;
+ if (sel.value) sel.classList.add('selected'); else sel.classList.remove('selected');
+ });
 
-     (async function init(){
-     await ensureRoles();
-     const items = await getAvailability();
-     buildAvailabilityMap(items);
-     })();
-    })();
-    </script>
+ document.getElementById('addItemForm').addEventListener('submit', async e => {
+ e.preventDefault();
+ const msg = document.getElementById('msg');
+ msg.className = 'msg';
+ msg.textContent = 'Dodawanie...';
+ try {
+ const dto = toDto();
+ const result = await postJson(`${apiBase}/api/equipment/add`, dto);
+ msg.className = 'msg success';
+ msg.textContent = `✅ Dodano: ${result.Type ?? dto.Type} ${result.Size ?? dto.Size}. Cena: ${result.Price ?? ''} Ilość: ${result.Quantity ?? dto.Quantity}`;
+ e.target.reset();
+ document.getElementById('size').disabled = true;
+ document.getElementById('size').innerHTML = '<option value="">Najpierw wybierz typ</option>';
+ } catch (err) {
+ msg.className = 'msg error';
+ msg.textContent = '❌ Błąd: ' + (err.message || err);
+ }
+ });
+
+ // Global price set handler
+ document.getElementById('gPriceSave').addEventListener('click', async (e) => {
+ e.preventDefault();
+ const msg = document.getElementById('gPriceMsg');
+ msg.className = 'msg';
+ msg.textContent = 'Ustawianie ceny...';
+ try {
+ const type = document.getElementById('gPriceType').value;
+ const size = document.getElementById('gPriceSize').value;
+ const priceRaw = document.getElementById('gPriceValue').value;
+ const priceNum = parseFloat(priceRaw);
+ if (!type || !size || !Number.isFinite(priceNum)) throw new Error('Wybierz typ, rozmiar i podaj cenę (liczba)');
+ const res = await setGlobalPrice(type, size, priceNum);
+ msg.className = 'msg success';
+ msg.textContent = `💾 Zapisano cenę: ${type} ${size} => ${parseFloat(price).toFixed(2)}`;
+ } catch (err) {
+ msg.className = 'msg error';
+ msg.textContent = '❌ Błąd ustawiania ceny: ' + (err.message || err);
+ }
+ });
+
+ document.getElementById('btnDelete').addEventListener('click', async () => {
+ const msg = document.getElementById('msg');
+ msg.className = 'msg';
+ msg.textContent = 'Usuwanie...';
+ try {
+ const dto = toDto();
+ if (!dto.Type || !dto.Size) throw new Error('Wybierz typ i rozmiar');
+ const result = await deleteJson(`${apiBase}/api/equipment/delete`, dto);
+ msg.className = 'msg success';
+ msg.textContent = `🗑️ Usunięto: ${dto.Type} ${dto.Size}. Usunięto: ${result.Deleted ??0} Pozostało: ${result.Remaining ?? ''}`;
+ } catch (err) {
+ msg.className = 'msg error';
+ msg.textContent = '❌ Błąd usuwania: ' + (err.message || err);
+ }
+ });
+
+ document.getElementById('btnSetPrice').addEventListener('click', async (e) => {
+ e.preventDefault();
+ const msg = document.getElementById('msg');
+ msg.className = 'msg';
+ msg.textContent = 'Ustawianie ceny...';
+ try {
+ const dto = toDto();
+ if (!dto.Type || !dto.Size || dto.Price == null) throw new Error('Wybierz typ, rozmiar i podaj cenę');
+ // send Type and Size as strings
+ const payload = { Type: dto.Type, Size: dto.Size, Price: dto.Price };
+ const res = await postJson(`${apiBase}/api/equipment/prices`, payload);
+ msg.className = 'msg success';
+ msg.textContent = `💾 Zapisano cenę: ${res.Type} ${res.Size} => ${res.Price}`;
+ } catch (err) {
+ msg.className = 'msg error';
+ msg.textContent = '❌ Błąd ustawiania ceny: ' + (err.message || err);
+ }
+ });
+
+ (async function init(){
+ await ensureRoles();
+ const items = await getAvailability();
+ buildAvailabilityMap(items);
+ })();
+ })();
+ </script>
 }

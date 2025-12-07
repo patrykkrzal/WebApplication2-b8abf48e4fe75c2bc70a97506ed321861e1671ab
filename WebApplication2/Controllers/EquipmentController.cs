@@ -6,6 +6,7 @@ using System.Linq;
 using Microsoft.EntityFrameworkCore; // for Database facade
 using Microsoft.AspNetCore.Authorization;
 using Rent.Enums;
+using Rent.Services;
 
 namespace Rent.Controllers
 {
@@ -14,16 +15,31 @@ namespace Rent.Controllers
     public class EquipmentController : ControllerBase
     {
         private readonly DataContext dbContext;
+        private readonly IPriceResolver priceResolver;
 
-        public EquipmentController(DataContext dbContext)
+        public EquipmentController(DataContext dbContext, IPriceResolver priceResolver)
         {
             this.dbContext = dbContext;
+            this.priceResolver = priceResolver;
         }
 
         [HttpGet]
         public IActionResult GetAllEquipment()
         {
-            var allEquipment = dbContext.Equipment.ToList();
+            // Return equipment rows but expose UnitPrice resolved from priceResolver
+            var allEquipment = dbContext.Equipment
+                .Select(e => new {
+                    e.Id,
+                    Type = e.Type.ToString(),
+                    Size = e.Size.ToString(),
+                    e.Is_In_Werehouse,
+                    e.Is_Reserved,
+                    UnitPrice = priceResolver.ResolvePrice(e.Type, e.Size),
+                    // include original Price for admin scenarios
+                    Price = e.Price,
+                    e.RentalInfoId
+                })
+                .ToList();
             return Ok(allEquipment);
         }
 
@@ -31,28 +47,18 @@ namespace Rent.Controllers
         public IActionResult GetById(int id)
         {
             var eq = dbContext.Equipment.Find(id);
-            return eq is null ? NotFound() : Ok(eq);
-        }
-
-        private decimal ResolvePrice(EquipmentType type, Size size)
-        {
-            // Stałe ceny według typu + ewentualny rozmiar
-            return type switch
-            {
-                EquipmentType.Skis => size switch
-                {
-                    Size.Small =>120m,
-                    Size.Medium =>130m,
-                    Size.Large =>140m,
-                    _ =>130m
-                },
-                EquipmentType.Helmet =>35m,
-                EquipmentType.Gloves =>15m,
-                EquipmentType.Poles =>22m,
-                EquipmentType.Snowboard =>160m,
-                EquipmentType.Goggles =>55m,
-                _ =>0m
+            if (eq is null) return NotFound();
+            var dto = new {
+                eq.Id,
+                Type = eq.Type.ToString(),
+                Size = eq.Size.ToString(),
+                eq.Is_In_Werehouse,
+                eq.Is_Reserved,
+                UnitPrice = priceResolver.ResolvePrice(eq.Type, eq.Size),
+                Price = eq.Price,
+                eq.RentalInfoId
             };
+            return Ok(dto);
         }
 
         [HttpGet("availability")]
@@ -66,7 +72,7 @@ namespace Rent.Controllers
                     Type = g.Key.Type.ToString(),
                     Size = g.Key.Size.ToString(),
                     Count = g.Count(),
-                    UnitPrice = g.First().Price
+                    UnitPrice = priceResolver.ResolvePrice(g.Key.Type, g.Key.Size)
                 })
                 .ToList();
             return Ok(grouped);
@@ -77,18 +83,21 @@ namespace Rent.Controllers
         public IActionResult AddEquipment([FromBody] CreateEquipmentDTO dto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
-            var price = ResolvePrice(dto.Type, dto.Size);
+            var price = dto.Price ?? priceResolver.ResolvePrice(dto.Type, dto.Size);
+            var qty = dto.Quantity ??1;
 
-            // use stored procedure spAddEquipment
-            dbContext.Database.ExecuteSqlRaw(
-                "EXEC dbo.spAddEquipment @p0, @p1, @p2",
-                (int)dto.Type,
-                (int)dto.Size,
-                price
-            );
+            // execute stored proc qty times (spAddEquipment handles single insert)
+            for (int i =0; i < qty; i++)
+            {
+                dbContext.Database.ExecuteSqlRaw(
+                    "EXEC dbo.spAddEquipment @p0, @p1, @p2",
+                    (int)dto.Type,
+                    (int)dto.Size,
+                    price
+                );
+            }
 
-            // Return refreshed list or simple acknowledgment
-            return Ok(new { Message = "Equipment added", dto.Type, dto.Size, Price = price });
+            return Ok(new { Message = "Equipment added", dto.Type, dto.Size, Price = price, Quantity = qty });
         }
 
         // DELETE one available (not reserved, in warehouse) item for given type+size
@@ -97,17 +106,20 @@ namespace Rent.Controllers
         public IActionResult DeleteOne([FromBody] CreateEquipmentDTO dto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
-            var entity = dbContext.Equipment
-                .Where(e => e.Type == dto.Type && e.Size == dto.Size && e.Is_In_Werehouse && !e.Is_Reserved)
-                .FirstOrDefault();
-            if (entity == null)
+            var qty = dto.Quantity ??1;
+            int deleted =0;
+            for (int i =0; i < qty; i++)
             {
-                return NotFound(new { Message = "Equipment not found or unavailable", dto.Type, dto.Size });
+                var entity = dbContext.Equipment
+                    .Where(e => e.Type == dto.Type && e.Size == dto.Size && e.Is_In_Werehouse && !e.Is_Reserved)
+                    .FirstOrDefault();
+                if (entity == null) break;
+                dbContext.Equipment.Remove(entity);
+                deleted++;
             }
-            dbContext.Equipment.Remove(entity);
             dbContext.SaveChanges();
             var remaining = dbContext.Equipment.Count(e => e.Type == dto.Type && e.Size == dto.Size && e.Is_In_Werehouse && !e.Is_Reserved);
-            return Ok(new { Message = "Deleted one equipment item", dto.Type, dto.Size, Remaining = remaining });
+            return Ok(new { Message = "Deleted equipment items", dto.Type, dto.Size, Deleted = deleted, Remaining = remaining });
         }
 
         [Authorize(Roles = "Admin,Worker")]

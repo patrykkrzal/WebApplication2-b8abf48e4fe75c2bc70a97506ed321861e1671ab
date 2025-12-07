@@ -18,7 +18,6 @@ namespace Rent
 
         public void SeedDataContext()
         {
-       
             if (!dataContext.RentalInfo.Any())
             {
                 var rentalInfo = new RentalInfo()
@@ -135,6 +134,26 @@ namespace Rent
                     RentalInfo = rentalInfo
                 };
                 dataContext.Orders.Add(order1);
+                dataContext.SaveChanges();
+            }
+
+            // seed equipment prices if empty
+            if (!dataContext.Set<Rent.Models.EquipmentPrice>().Any())
+            {
+                var prices = new List<Rent.Models.EquipmentPrice>
+                {
+                    new Rent.Models.EquipmentPrice { Type = Rent.Enums.EquipmentType.Skis, Size = Rent.Enums.Size.Small, Price =120m },
+                    new Rent.Models.EquipmentPrice { Type = Rent.Enums.EquipmentType.Skis, Size = Rent.Enums.Size.Medium, Price =130m },
+                    new Rent.Models.EquipmentPrice { Type = Rent.Enums.EquipmentType.Skis, Size = Rent.Enums.Size.Large, Price =140m },
+                    new Rent.Models.EquipmentPrice { Type = Rent.Enums.EquipmentType.Helmet, Size = Rent.Enums.Size.Universal, Price =35m },
+                    new Rent.Models.EquipmentPrice { Type = Rent.Enums.EquipmentType.Gloves, Size = Rent.Enums.Size.Small, Price =15m },
+                    new Rent.Models.EquipmentPrice { Type = Rent.Enums.EquipmentType.Gloves, Size = Rent.Enums.Size.Medium, Price =15m },
+                    new Rent.Models.EquipmentPrice { Type = Rent.Enums.EquipmentType.Gloves, Size = Rent.Enums.Size.Large, Price =15m },
+                    new Rent.Models.EquipmentPrice { Type = Rent.Enums.EquipmentType.Poles, Size = Rent.Enums.Size.Medium, Price =22m },
+                    new Rent.Models.EquipmentPrice { Type = Rent.Enums.EquipmentType.Snowboard, Size = Rent.Enums.Size.Medium, Price =160m },
+                    new Rent.Models.EquipmentPrice { Type = Rent.Enums.EquipmentType.Goggles, Size = Rent.Enums.Size.Universal, Price =55m }
+                };
+                dataContext.Set<Rent.Models.EquipmentPrice>().AddRange(prices);
                 dataContext.SaveChanges();
             }
         }

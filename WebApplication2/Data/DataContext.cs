@@ -10,9 +10,11 @@ namespace Rent.Data
         {
         }
 
-        public DbSet<User> Users { get; set; }
+        // Users DbSet is inherited from IdentityDbContext<User>, remove duplicate to avoid hiding warning
+        // public DbSet<User> Users { get; set; }
         public DbSet<Worker> Workers { get; set; }
         public DbSet<Equipment> Equipment { get; set; }
+        public DbSet<EquipmentPrice> EquipmentPrices { get; set; }
         public DbSet<Order> Orders { get; set; }
         public DbSet<RentalInfo> RentalInfo { get; set; }
         public DbSet<OrderedItem> OrderedItems { get; set; }
@@ -21,7 +23,7 @@ namespace Rent.Data
         {
             base.OnModelCreating(modelBuilder);
 
-  
+
             modelBuilder.Entity<Order>()
                 .ToTable("Orders", t => t.HasTrigger("trg_Orders_ValidateDiscount"));
 
@@ -37,6 +39,13 @@ namespace Rent.Data
                 .HasOne(eo => eo.Order)
                 .WithMany(o => o.OrderedItems)
                 .HasForeignKey(eo => eo.OrderId);
+
+            // Set decimal precision to avoid truncation warnings
+            modelBuilder.Entity<Equipment>().Property(e => e.Price).HasPrecision(18, 2);
+            modelBuilder.Entity<EquipmentPrice>().Property(p => p.Price).HasPrecision(18, 2);
+            modelBuilder.Entity<Order>().Property(o => o.Price).HasPrecision(18, 2);
+            modelBuilder.Entity<Order>().Property(o => o.BasePrice).HasPrecision(18, 2);
+            modelBuilder.Entity<OrderedItem>().Property(oi => oi.PriceWhenOrdered).HasPrecision(18, 2);
         }
     }
 }
