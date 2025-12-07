@@ -23,5 +23,15 @@ namespace Tests
  Assert.AreEqual(1, all.Count);
  Assert.AreEqual(e.Id, all[0].Id);
  }
+
+ [Test]
+ public void Equipment_service_generates_unique_ids()
+ {
+ var dto1 = new CreateEquipmentDTO { Type = EquipmentType.Skis, Size = Size.Medium, Price =10m };
+ var dto2 = new CreateEquipmentDTO { Type = EquipmentType.Helmet, Size = Size.Universal, Price =5m };
+ var e1 = _svc.AddEquipment(dto1);
+ var e2 = _svc.AddEquipment(dto2);
+ Assert.AreNotEqual(e1.Id, e2.Id);
+ }
  }
 }

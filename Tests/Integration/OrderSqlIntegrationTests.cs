@@ -37,8 +37,16 @@ namespace Tests.Integration
  cmd.Parameters.Add(finalParam);
  cmd.Parameters.Add(pctParam);
  await cmd.ExecuteNonQueryAsync();
- var final = (decimal)finalParam.Value;
- var pct = (decimal)pctParam.Value;
+
+ // Safely extract output values (handle DBNull/null)
+ decimal final =0m;
+ if (finalParam.Value != null && finalParam.Value != DBNull.Value)
+ final = Convert.ToDecimal(finalParam.Value);
+
+ decimal pct =0m;
+ if (pctParam.Value != null && pctParam.Value != DBNull.Value)
+ pct = Convert.ToDecimal(pctParam.Value);
+
  Assert.Greater(final,0m, "spCalculateOrderPrice returned zero final price");
  Assert.GreaterOrEqual(pct,0m, "spCalculateOrderPrice returned negative discount");
  }
@@ -48,7 +56,7 @@ namespace Tests.Integration
  cmd.Parameters.Add(new SqlParameter("@itemsCount", System.Data.SqlDbType.Int) { Value =2 });
  cmd.Parameters.Add(new SqlParameter("@days", System.Data.SqlDbType.Int) { Value =2 });
  var obj = await cmd.ExecuteScalarAsync();
- var pct = obj == DBNull.Value ?0m : (decimal)obj;
+ var pct = obj == DBNull.Value || obj == null ?0m : Convert.ToDecimal(obj);
  Assert.GreaterOrEqual(pct,0m);
  Assert.LessOrEqual(pct,1m);
  }

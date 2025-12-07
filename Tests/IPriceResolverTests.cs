@@ -15,7 +15,8 @@ namespace Tests
  [SetUp]
  public void Setup()
  {
- var opts = new DbContextOptionsBuilder<DataContext>().UseInMemoryDatabase("pricetest").Options;
+ // use a unique in-memory database name for each test run to avoid duplicate key issues
+ var opts = new DbContextOptionsBuilder<DataContext>().UseInMemoryDatabase(System.Guid.NewGuid().ToString()).Options;
  _db = new DataContext(opts);
  _db.EquipmentPrices.Add(new EquipmentPrice { Id =1, Type = EquipmentType.Skis, Size = Size.Small, Price =111m });
  _db.SaveChanges();
@@ -27,6 +28,14 @@ namespace Tests
  {
  var p = _resolver.ResolvePrice(EquipmentType.Skis, Size.Small);
  Assert.AreEqual(111m, p);
+ }
+
+ [Test]
+ public void Price_resolver_falls_back_to_default_if_missing()
+ {
+ var p = _resolver.ResolvePrice(EquipmentType.Goggles, Size.Universal);
+ // default mapper in EfPriceResolver returns some fallback number (should be non-negative)
+ Assert.GreaterOrEqual(p,0m);
  }
  }
 }

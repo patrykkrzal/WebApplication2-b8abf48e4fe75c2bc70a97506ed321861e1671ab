@@ -32,30 +32,6 @@ BEGIN
 END;
 GO
 
--- Procedura tworz¹ca zamówienie
-IF OBJECT_ID('dbo.spPlaceOrder','P') IS NOT NULL
- DROP PROCEDURE dbo.spPlaceOrder;
-GO
-CREATE PROCEDURE dbo.spPlaceOrder
- @UserId NVARCHAR(450),
- @RentalInfoId INT = NULL
-AS
-BEGIN
- SET NOCOUNT ON;
-
- DECLARE @OrderId INT;
-
- INSERT INTO Orders (Rented_Items, OrderDate, Price, Date_Of_submission, Was_It_Returned, UserId, RentalInfoId)
- VALUES (N'', SYSUTCDATETIME(),0, CONVERT(date, SYSUTCDATETIME()),0, @UserId, @RentalInfoId);
-
- SET @OrderId = SCOPE_IDENTITY();
-
- UPDATE Orders SET Price = dbo.ufn_OrderTotal(@OrderId) WHERE Id = @OrderId;
-
- SELECT @OrderId AS OrderId;
-END;
-GO
-
 -- Usuniêto trigger na OrderedItems (powodowa³ konflikt z EF Core OUTPUT). Logika rezerwacji sprzêtu wykonywana jest w kodzie aplikacji.
 IF OBJECT_ID('dbo.trg_OrderedItems_AfterInsert','TR') IS NOT NULL
  DROP TRIGGER dbo.trg_OrderedItems_AfterInsert;
