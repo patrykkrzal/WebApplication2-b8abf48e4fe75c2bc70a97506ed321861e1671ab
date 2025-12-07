@@ -34,6 +34,8 @@
  const typeNameMap = {0: 'Snowboard',1: 'Gloves',2: 'Poles',3: 'Helmet',4: 'Skis',5: 'Goggles' };
  const sizeNameMap = {0: 'Universal',1: 'Small',2: 'Medium',3: 'Large',4: 'Xl' };
 
+ const apiBase = (window.__rent && window.__rent.apiBase) ? window.__rent.apiBase : '';
+
  function normalizeType(val) {
  const s = (val === undefined || val === null) ? '' : String(val);
  if (s === '') return '';
@@ -179,8 +181,9 @@
  }
 
  async function loadEquipment() {
- try { const res = await fetch('/api/equipment', { credentials: 'include' }); if (!res.ok) return; equipmentData = await res.json(); groupEquipment(); markActive(); }
- catch { }
+ try { const res = await fetch(`${apiBase}/api/equipment`, { credentials: 'include' }); if (!res.ok) { console.warn('Failed to load equipment, status=', res.status); return; } equipmentData = await res.json(); if (!Array.isArray(equipmentData) || equipmentData.length ===0) { console.info('No equipment data returned'); }
+ groupEquipment(); markActive(); }
+ catch (err) { console.error('Error loading equipment', err); }
  }
 
  function initSlider() {
@@ -190,6 +193,6 @@
  }
 
  document.addEventListener('DOMContentLoaded', () => { initSlider(); loadEquipment(); });
-})();
+})();// IIFE
 </script>
 }

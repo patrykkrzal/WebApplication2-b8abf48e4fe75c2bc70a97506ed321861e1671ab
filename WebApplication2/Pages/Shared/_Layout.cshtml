@@ -29,65 +29,93 @@
  </details>
  <a class="winter-button" href="/Kontakt.html">✉️ Kontakt</a>
  <a class="winter-button" href="/Basket.html">🧺 Koszyk</a>
- <a class="winter-button" href="/Login.html">🔐 Logowanie</a>
+ <a id="loginBtn" class="winter-button" href="/Login.html">🔐 Logowanie</a>
  </div>
  </div>
  </header>
 
-    <main>
-        <div class="content-section">
-            <div class="frost-effect">
-                @RenderBody()
-            </div>
-        </div>
-    </main>
+ <main>
+ <div class="content-section">
+ <div class="frost-effect">
+ @RenderBody()
+ </div>
+ </div>
+ </main>
 
-    <footer></footer>
+ <footer></footer>
 
-    <script>
-    (function(){
-        const authState = { user: null, roles: [], isAuthenticated: false };
+ <script>
+ (function(){
+ const authState = { user: null, roles: [], isAuthenticated: false };
 
-        async function getMe(){
-            try{
-                let res = await fetch('/api/auth/me', { credentials: 'include' });
-                if (!res.ok) res = await fetch('/api/users/me', { credentials: 'include' });
-                if (!res.ok) return null;
-                return await res.json();
-            } catch { return null; }
-        }
+ async function getMe(){
+ try{
+ let res = await fetch('/api/auth/me', { credentials: 'include' });
+ if (!res.ok) res = await fetch('/api/users/me', { credentials: 'include' });
+ if (!res.ok) return null;
+ return await res.json();
+ } catch { return null; }
+ }
 
-        function setUserPanelDisabled(disabled){
-            document.querySelectorAll('.user-panel').forEach(el => el.classList.toggle('disabled', disabled));
-        }
+ function setUserPanelDisabled(disabled){
+ document.querySelectorAll('.user-panel').forEach(el => el.classList.toggle('disabled', disabled));
+ }
 
-        function applyRoleVisibility(){
-            document.querySelectorAll('[data-show-when-auth="true"]').forEach(el => el.style.display = authState.isAuthenticated ? '' : 'none');
-            document.querySelectorAll('[data-hide-when-auth="true"]').forEach(el => el.style.display = authState.isAuthenticated ? 'none' : '');
-            setUserPanelDisabled(!authState.isAuthenticated);
-        }
+ function applyRoleVisibility(){
+ document.querySelectorAll('[data-show-when-auth="true"]').forEach(el => el.style.display = authState.isAuthenticated ? '' : 'none');
+ document.querySelectorAll('[data-hide-when-auth="true"]').forEach(el => el.style.display = authState.isAuthenticated ? 'none' : '');
+ setUserPanelDisabled(!authState.isAuthenticated);
+ }
 
-        async function initAuth(){
-            const me = await getMe();
-            if (me && (Array.isArray(me.Roles) || Array.isArray(me.roles))){
-                authState.user = me;
-                authState.roles = (me.Roles || me.roles).map(r => String(r).toLowerCase());
-                authState.isAuthenticated = true;
-            }
-            window.auth = {
-                get user(){ return authState.user; },
-                get roles(){ return authState.roles; },
-                get isAuthenticated(){ return authState.isAuthenticated; },
-                hasAnyRole: (...roles) => authState.isAuthenticated && roles.map(r => String(r).toLowerCase()).some(r => authState.roles.includes(r))
-            };
-            applyRoleVisibility();
-        }
+ async function initAuth(){
+ const me = await getMe();
+ if (me && (Array.isArray(me.Roles) || Array.isArray(me.roles))){
+ authState.user = me;
+ authState.roles = (me.Roles || me.roles).map(r => String(r).toLowerCase());
+ authState.isAuthenticated = true;
+ }
+ window.auth = {
+ get user(){ return authState.user; },
+ get roles(){ return authState.roles; },
+ get isAuthenticated(){ return authState.isAuthenticated; },
+ hasAnyRole: (...roles) => authState.isAuthenticated && roles.map(r => String(r).toLowerCase()).some(r => authState.roles.includes(r))
+ };
+ applyRoleVisibility();
 
-        document.addEventListener('DOMContentLoaded', () => initAuth());
-        window.__rent = window.__rent || {}; window.__rent.apiBase = window.__rent.apiBase || '';
-    })();
-    </script>
+ // update login button to show logout when authenticated
+ const loginBtn = document.getElementById('loginBtn');
+ if (!loginBtn) return;
+ if (authState.isAuthenticated) {
+ loginBtn.textContent = '🔓 Wyloguj';
+ loginBtn.href = '#';
+ loginBtn.onclick = async (e) => {
+ e.preventDefault();
+ try {
+ const res = await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+ if (res.ok) {
+ // reload to update UI state
+ window.location.reload();
+ } else {
+ console.warn('Logout failed', res.status);
+ window.location.reload();
+ }
+ } catch (err) {
+ console.error('Logout error', err);
+ window.location.reload();
+ }
+ };
+ } else {
+ loginBtn.textContent = '🔐 Logowanie';
+ loginBtn.href = '/Login.html';
+ loginBtn.onclick = null;
+ }
+ }
 
-    @RenderSection("Scripts", required: false)
+ document.addEventListener('DOMContentLoaded', () => initAuth());
+ window.__rent = window.__rent || {}; window.__rent.apiBase = window.__rent.apiBase || '';
+ })();
+ </script>
+
+ @RenderSection("Scripts", required: false)
 </body>
 </html>

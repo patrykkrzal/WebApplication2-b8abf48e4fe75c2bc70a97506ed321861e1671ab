@@ -10,7 +10,7 @@
  Brak uprawnień. Ta strona jest dostępna tylko dla użytkowników z rolą Admin lub Worker.
 </div>
 
-<!-- Global price setter at the top -->
+<!-- Global price setter at the top (styled like other forms) -->
 <div class="content-section" style="max-width:900px; margin:12px auto; padding:12px;">
  <div class="form-box">
  <h2 class="winter-title" style="font-size:1.1rem;">💲 Ustaw globalną cenę</h2>
@@ -45,8 +45,9 @@
  </div>
 </div>
 
-<!-- Add/Delete form below -->
-<details class="user-panel" id="addPanel" open>
+<!-- Add/Delete form below, centered like the price box -->
+<div class="content-section" style="max-width:900px; margin:18px auto; padding:12px;">
+ <details class="user-panel" id="addPanel" open>
  <summary class="winter-button" aria-label="Dodaj sprzęt">➕ / ➖ Sprzęt</summary>
 
  <form id="addItemForm" class="form-box" novalidate style="display:none">
@@ -64,18 +65,13 @@
  </div>
 
  <div class="mb-3">
- <label for="size">Rozmiar</label>
+ <label for="size">Rozmiar <span id="sizeAvailable" style="font-weight:600; margin-left:8px; color:var(--btn-text);"></span></label>
  <select id="size" name="Size" class="form-select" required disabled>
  <option value="">Najpierw wybierz typ</option>
  </select>
  <div id="sizeHint" class="form-text">
- Dostępne rozmiary zależą od wybranego typu i stanu magazynowego.
+ Dostępne rozmiary zależą od wybranego typu i stanie magazynowym.
  </div>
- </div>
-
- <div class="mb-3">
- <label for="price">Cena (opcjonalnie, pozostaw puste aby użyć domyślnej)</label>
- <input id="price" name="Price" type="number" step="0.01" min="0" class="form-control" placeholder="np.120.00" />
  </div>
 
  <div class="mb-3">
@@ -90,7 +86,8 @@
 
  <div id="msg" class="msg"></div>
  </form>
-</details>
+ </details>
+</div>
 
 @section Scripts {
  <script>
@@ -100,9 +97,8 @@
  function toDto() {
  const type = document.getElementById('type').value;
  const size = document.getElementById('size').value;
- const priceRaw = document.getElementById('price').value;
  const qtyRaw = document.getElementById('quantity').value;
- return { Type: type, Size: size, Price: priceRaw ? parseFloat(priceRaw) : null, Quantity: qtyRaw ? parseInt(qtyRaw) :1 };
+ return { Type: type, Size: size, Quantity: qtyRaw ? parseInt(qtyRaw) :1 };
  }
 
  async function postJson(url, body) {
@@ -165,14 +161,16 @@
  } catch { return []; }
  }
 
- let availabilityByType = {};
+ let availabilityByType = {}; // { type: { size: count } }
  function buildAvailabilityMap(items) {
  availabilityByType = {};
  items.forEach(x => {
  const t = String(x.Type || '').trim();
  const s = String(x.Size || '').trim();
+ const c = parseInt(x.Count ||0) ||0;
  if (!t || !s) return;
- (availabilityByType[t] ||= new Set()).add(s);
+ if (!availabilityByType[t]) availabilityByType[t] = {};
+ availabilityByType[t][s] = c;
  });
  }
 
@@ -190,10 +188,11 @@
  return m[sz] || sz;
  }
 
- function makeOption(value) {
+ function makeOption(value, available) {
  const opt = document.createElement('option');
  opt.value = value;
- opt.textContent = tSize(value);
+ opt.textContent = `${tSize(value)}${(typeof available === 'number') ? ` (dostępne: ${available})` : ''}`;
+ if (typeof available === 'number') opt.dataset.available = available;
  return opt;
  }
 
@@ -201,15 +200,39 @@
  const sizeSelect = document.getElementById('size');
  sizeSelect.innerHTML = '';
 
- const sizes = availabilityByType[type] ? Array.from(availabilityByType[type]) : (sizeMap[type] || ['Small', 'Medium', 'Large']);
+ const sizes = availabilityByType[type] ? Object.keys(availabilityByType[type]) : (sizeMap[type] || ['Small', 'Medium', 'Large']);
  if (!sizes || sizes.length ===0) {
  sizeSelect.appendChild(new Option('Brak dostępnych rozmiarów', ''));
  sizeSelect.disabled = true;
+ document.getElementById('sizeAvailable').textContent = '';
  return;
  }
- sizes.forEach(sz => sizeSelect.appendChild(makeOption(sz)));
+ sizes.forEach(sz => {
+ const avail = (availabilityByType[type] && availabilityByType[type][sz] != null) ? availabilityByType[type][sz] : undefined;
+ sizeSelect.appendChild(makeOption(sz, avail));
+ });
  sizeSelect.disabled = false;
  sizeSelect.classList.remove('selected');
+ // select first and trigger change to update availability display
+ sizeSelect.selectedIndex =0;
+ onSizeChanged();
+ }
+
+ function onSizeChanged() {
+ const sizeSelect = document.getElementById('size');
+ const opt = sizeSelect.selectedOptions[0];
+ const availSpan = document.getElementById('sizeAvailable');
+ const qtyEl = document.getElementById('quantity');
+ if (!opt) { availSpan.textContent = ''; qtyEl.min =1; return; }
+ const available = parseInt(opt.dataset.available);
+ if (Number.isFinite(available)) {
+ availSpan.textContent = `Dostępne: ${available}`;
+ qtyEl.max = Math.max(1, available);
+ if (parseInt(qtyEl.value) > available) qtyEl.value = available >0 ? available :1;
+ } else {
+ availSpan.textContent = '';
+ qtyEl.removeAttribute('max');
+ }
  }
 
  async function ensureRoles() {
@@ -217,7 +240,10 @@
  const guard = document.getElementById('roleGuard');
  const form = document.getElementById('addItemForm');
 
- const hasAccess = me && (Array.isArray(me.Roles) || Array.isArray(me.roles)) && (me.Roles || me.roles).some(r => ['Admin', 'Worker'].includes(r));
+ // case-insensitive role check
+ const roles = (me && (Array.isArray(me.Roles) || Array.isArray(me.roles))) ? (me.Roles || me.roles) : [];
+ const rolesLower = roles.map(r => String(r).toLowerCase());
+ const hasAccess = rolesLower.includes('admin') || rolesLower.includes('worker');
 
  if (!hasAccess) {
  guard.style.display = 'block';
@@ -232,22 +258,10 @@
 
  document.getElementById('type').addEventListener('change', e => {
  const type = e.target.value;
- const sizeSelect = document.getElementById('size');
-
- if (!type) {
- sizeSelect.innerHTML = '<option value="">Najpierw wybierz typ</option>';
- sizeSelect.disabled = true;
- sizeSelect.classList.remove('selected');
- return;
- }
-
  populateSizesForType(type);
  });
 
- document.getElementById('size').addEventListener('change', e => {
- const sel = e.target;
- if (sel.value) sel.classList.add('selected'); else sel.classList.remove('selected');
- });
+ document.getElementById('size').addEventListener('change', onSizeChanged);
 
  document.getElementById('addItemForm').addEventListener('submit', async e => {
  e.preventDefault();
@@ -258,8 +272,10 @@
  const dto = toDto();
  const result = await postJson(`${apiBase}/api/equipment/add`, dto);
  msg.className = 'msg success';
- msg.textContent = `✅ Dodano: ${result.Type ?? dto.Type} ${result.Size ?? dto.Size}. Cena: ${result.Price ?? ''} Ilość: ${result.Quantity ?? dto.Quantity}`;
+ msg.textContent = `✅ Dodano: ${result.Type ?? dto.Type} ${result.Size ?? dto.Size}. Ilość: ${result.Quantity ?? dto.Quantity}`;
  e.target.reset();
+ const items = await getAvailability();
+ buildAvailabilityMap(items);
  document.getElementById('size').disabled = true;
  document.getElementById('size').innerHTML = '<option value="">Najpierw wybierz typ</option>';
  } catch (err) {
@@ -268,7 +284,6 @@
  }
  });
 
- // Global price set handler
  document.getElementById('gPriceSave').addEventListener('click', async (e) => {
  e.preventDefault();
  const msg = document.getElementById('gPriceMsg');
@@ -282,7 +297,7 @@
  if (!type || !size || !Number.isFinite(priceNum)) throw new Error('Wybierz typ, rozmiar i podaj cenę (liczba)');
  const res = await setGlobalPrice(type, size, priceNum);
  msg.className = 'msg success';
- msg.textContent = `💾 Zapisano cenę: ${type} ${size} => ${parseFloat(price).toFixed(2)}`;
+ msg.textContent = `💾 Zapisano cenę: ${type} ${size} => ${priceNum.toFixed(2)}`;
  } catch (err) {
  msg.className = 'msg error';
  msg.textContent = '❌ Błąd ustawiania ceny: ' + (err.message || err);
@@ -296,31 +311,20 @@
  try {
  const dto = toDto();
  if (!dto.Type || !dto.Size) throw new Error('Wybierz typ i rozmiar');
+ const sizeSelect = document.getElementById('size');
+ const opt = sizeSelect.selectedOptions[0];
+ const available = opt ? parseInt(opt.dataset.available) : NaN;
+ const qty = parseInt(document.getElementById('quantity').value) ||1;
+ if (Number.isFinite(available) && available <=0) { throw new Error('Brak dostępnych przedmiotów do usunięcia.'); }
+ if (Number.isFinite(available) && qty > available) { throw new Error(`Nie można usunąć więcej niż dostępne: ${available}`); }
  const result = await deleteJson(`${apiBase}/api/equipment/delete`, dto);
  msg.className = 'msg success';
  msg.textContent = `🗑️ Usunięto: ${dto.Type} ${dto.Size}. Usunięto: ${result.Deleted ??0} Pozostało: ${result.Remaining ?? ''}`;
+ const items = await getAvailability();
+ buildAvailabilityMap(items);
  } catch (err) {
  msg.className = 'msg error';
  msg.textContent = '❌ Błąd usuwania: ' + (err.message || err);
- }
- });
-
- document.getElementById('btnSetPrice').addEventListener('click', async (e) => {
- e.preventDefault();
- const msg = document.getElementById('msg');
- msg.className = 'msg';
- msg.textContent = 'Ustawianie ceny...';
- try {
- const dto = toDto();
- if (!dto.Type || !dto.Size || dto.Price == null) throw new Error('Wybierz typ, rozmiar i podaj cenę');
- // send Type and Size as strings
- const payload = { Type: dto.Type, Size: dto.Size, Price: dto.Price };
- const res = await postJson(`${apiBase}/api/equipment/prices`, payload);
- msg.className = 'msg success';
- msg.textContent = `💾 Zapisano cenę: ${res.Type} ${res.Size} => ${res.Price}`;
- } catch (err) {
- msg.className = 'msg error';
- msg.textContent = '❌ Błąd ustawiania ceny: ' + (err.message || err);
  }
  });
 

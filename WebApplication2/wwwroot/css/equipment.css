@@ -217,3 +217,130 @@
  .overlay-controls { left:8px; right:6px; bottom:8px; padding: .5rem .6rem .65rem; }
  .slide-caption { font-size: .95rem; min-width:75%; }
 }
+
+/* Form & controls styling to match site theme (for AddOrDeleteItem and similar forms) */
+.form-box {
+ background: rgba(12,39,66,0.45);
+ border:1px solid rgba(51,153,255,0.08);
+ padding:14px;
+ border-radius:12px;
+ color: var(--btn-text);
+}
+
+.form-box label { color: var(--btn-text); font-weight:600; margin-bottom:6px; display:block; }
+
+.form-box .form-select,
+.form-box .form-control {
+ background: rgba(12,39,66,0.55);
+ color: var(--btn-text);
+ border:1px solid rgba(51,153,255,0.14);
+ padding: .5rem .6rem;
+ border-radius:10px;
+ min-height:40px;
+ box-shadow:02px8px rgba(0,0,0,0.25) inset;
+ transition: box-shadow .18s ease, border-color .18s ease, transform .08s;
+}
+
+.form-box .form-select:focus,
+.form-box .form-control:focus {
+ outline: none;
+ border-color: var(--accent);
+ box-shadow:06px18px rgba(51,153,255,0.10),0003px rgba(51,153,255,0.04);
+ transform: translateY(-1px);
+}
+
+/* Native option styling is limited and browser-dependent, but set safe defaults */
+.form-box .form-select option {
+ background: linear-gradient(180deg, rgba(10,28,42,1), rgba(12,39,66,1));
+ color: var(--btn-text);
+}
+
+/* Submit / action buttons inside forms */
+.submit-btn {
+ background: var(--btn-bg-dark);
+ color: var(--btn-text);
+ font-weight:700;
+ border:2px solid var(--accent);
+ border-radius:12px;
+ padding: .55rem1.1rem;
+ cursor: pointer;
+ transition: transform .12s ease, background .12s ease, box-shadow .12s ease;
+}
+
+.submit-btn:hover { background: #12365d; transform: translateY(-2px); }
+
+.delete-btn {
+ background: #2e2e2e;
+ border-color: rgba(255,80,80,0.14);
+}
+
+/* Small helper messages inside forms */
+.form-box .msg { margin-top: .6rem; font-size: .95rem; color: var(--btn-text); }
+.form-box .msg.success { color: #b8f3c6; }
+.form-box .msg.error { color: #ffb4b4; }
+
+/* Make select arrow blend with theme */
+.form-box .form-select { -webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: linear-gradient(45deg, transparent50%, var(--btn-text)50%), linear-gradient(135deg, var(--btn-text)50%, transparent50%); background-position: calc(100% -18px) calc(1em +2px), calc(100% -13px) calc(1em +2px); background-size:6px6px,6px6px; background-repeat: no-repeat; padding-right:36px; }
+
+/* Form layout tweaks */
+.form-box .mb-3 {
+ display: flex;
+ flex-direction: column;
+ gap:6px;
+ margin-bottom:12px;
+}
+
+.form-box .form-select,
+.form-box .form-control {
+ width:100%;
+}
+
+/* Center the actions row */
+.form-box .dual-actions {
+ display: flex;
+ gap:12px;
+ justify-content: center;
+ align-items: center;
+ margin-top:8px;
+}
+
+/* Style details/summary to match theme */
+details.user-panel {
+ background: transparent;
+ border-radius:12px;
+ display: block;
+ text-align: center;
+}
+
+details.user-panel summary.winter-button {
+ display: inline-block;
+ padding: .6rem1rem;
+ border-radius:10px;
+ background: rgba(12,39,66,0.55);
+ color: var(--btn-text);
+ border:1px solid rgba(51,153,255,0.12);
+ cursor: pointer;
+ margin: 0 auto 12px;
+}
+
+details.user-panel[open] summary.winter-button {
+ box-shadow:06px18px rgba(51,153,255,0.06);
+ transform: translateY(-2px);
+}
+
+/* Make option list appear coherent on supported browsers (limited) */
+.form-box .form-select option {
+ color: var(--btn-text);
+ background: linear-gradient(180deg, rgba(10,28,42,1), rgba(12,39,66,1));
+}
+
+/* small screens */
+@media (max-width:700px) {
+ .form-box { padding:10px; }
+ .form-box .form-select, .form-box .form-control { min-height:36px; }
+ .form-box .dual-actions { flex-direction: column; }
+}
+
+@media (max-width:900px) {
+ .content-section .form-box { padding:10px; }
+}

@@ -26,8 +26,10 @@ namespace Rent.Controllers
         [HttpGet]
         public IActionResult GetAllEquipment()
         {
-            // Return equipment rows but expose UnitPrice resolved from priceResolver
-            var allEquipment = dbContext.Equipment
+            // Prevent nested DataReader by materializing equipment first
+            var equipments = dbContext.Equipment.AsNoTracking().ToList();
+
+            var allEquipment = equipments
                 .Select(e => new {
                     e.Id,
                     Type = e.Type.ToString(),
@@ -64,17 +66,29 @@ namespace Rent.Controllers
         [HttpGet("availability")]
         public IActionResult GetAvailability()
         {
-            var grouped = dbContext.Equipment
+            // materialize grouped counts first, then resolve prices to avoid nested readers
+            var groupedCounts = dbContext.Equipment
+                .AsNoTracking()
                 .Where(e => e.Is_In_Werehouse && !e.Is_Reserved)
                 .GroupBy(e => new { e.Type, e.Size })
                 .Select(g => new
                 {
-                    Type = g.Key.Type.ToString(),
-                    Size = g.Key.Size.ToString(),
-                    Count = g.Count(),
-                    UnitPrice = priceResolver.ResolvePrice(g.Key.Type, g.Key.Size)
+                    Type = g.Key.Type,
+                    Size = g.Key.Size,
+                    Count = g.Count()
                 })
                 .ToList();
+
+            var grouped = groupedCounts
+                .Select(g => new
+                {
+                    Type = g.Type.ToString(),
+                    Size = g.Size.ToString(),
+                    Count = g.Count,
+                    UnitPrice = priceResolver.ResolvePrice(g.Type, g.Size)
+                })
+                .ToList();
+
             return Ok(grouped);
         }
 
@@ -82,22 +96,43 @@ namespace Rent.Controllers
         [HttpPost("add")] // unique route to avoid Swagger conflicts
         public IActionResult AddEquipment([FromBody] CreateEquipmentDTO dto)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-            var price = dto.Price ?? priceResolver.ResolvePrice(dto.Type, dto.Size);
-            var qty = dto.Quantity ??1;
-
-            // execute stored proc qty times (spAddEquipment handles single insert)
-            for (int i =0; i < qty; i++)
+            if (dto == null) return BadRequest(new { Message = "Empty payload" });
+            if (!ModelState.IsValid)
             {
-                dbContext.Database.ExecuteSqlRaw(
-                    "EXEC dbo.spAddEquipment @p0, @p1, @p2",
-                    (int)dto.Type,
-                    (int)dto.Size,
-                    price
-                );
+                var errors = ModelState.Where(kv => kv.Value.Errors.Any())
+                    .ToDictionary(kv => kv.Key, kv => kv.Value.Errors.Select(e => e.ErrorMessage).ToArray());
+                return BadRequest(new { Message = "Invalid payload", Errors = errors });
             }
 
-            return Ok(new { Message = "Equipment added", dto.Type, dto.Size, Price = price, Quantity = qty });
+            try
+            {
+                var price = dto.Price ?? priceResolver.ResolvePrice(dto.Type, dto.Size);
+                var qty = dto.Quantity ??1;
+
+                // create items directly to avoid dependency on stored proc
+                var created = new List<Equipment>();
+                for (int i =0; i < qty; i++)
+                {
+                    var item = new Equipment
+                    {
+                        Type = dto.Type,
+                        Size = dto.Size,
+                        Is_In_Werehouse = true,
+                        Is_Reserved = false,
+                        Price = price
+                    };
+                    dbContext.Equipment.Add(item);
+                    created.Add(item);
+                }
+                dbContext.SaveChanges();
+
+                return Ok(new { Message = "Equipment added", Type = dto.Type.ToString(), Size = dto.Size.ToString(), Price = price, Quantity = qty, CreatedIds = created.Select(c => c.Id).ToArray() });
+            }
+            catch (System.Exception ex)
+            {
+                // return minimal error info to client for troubleshooting
+                return StatusCode(500, new { Message = "Failed to add equipment", Error = ex.Message });
+            }
         }
 
         // DELETE one available (not reserved, in warehouse) item for given type+size
@@ -105,21 +140,35 @@ namespace Rent.Controllers
         [HttpDelete("delete")]
         public IActionResult DeleteOne([FromBody] CreateEquipmentDTO dto)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-            var qty = dto.Quantity ??1;
-            int deleted =0;
-            for (int i =0; i < qty; i++)
+            if (dto == null) return BadRequest(new { Message = "Empty payload" });
+            if (!ModelState.IsValid)
             {
-                var entity = dbContext.Equipment
-                    .Where(e => e.Type == dto.Type && e.Size == dto.Size && e.Is_In_Werehouse && !e.Is_Reserved)
-                    .FirstOrDefault();
-                if (entity == null) break;
-                dbContext.Equipment.Remove(entity);
-                deleted++;
+                var errors = ModelState.Where(kv => kv.Value.Errors.Any())
+                    .ToDictionary(kv => kv.Key, kv => kv.Value.Errors.Select(e => e.ErrorMessage).ToArray());
+                return BadRequest(new { Message = "Invalid payload", Errors = errors });
             }
-            dbContext.SaveChanges();
-            var remaining = dbContext.Equipment.Count(e => e.Type == dto.Type && e.Size == dto.Size && e.Is_In_Werehouse && !e.Is_Reserved);
-            return Ok(new { Message = "Deleted equipment items", dto.Type, dto.Size, Deleted = deleted, Remaining = remaining });
+
+            try
+            {
+                var qty = dto.Quantity ??1;
+                int deleted =0;
+                for (int i =0; i < qty; i++)
+                {
+                    var entity = dbContext.Equipment
+                        .Where(e => e.Type == dto.Type && e.Size == dto.Size && e.Is_In_Werehouse && !e.Is_Reserved)
+                        .FirstOrDefault();
+                    if (entity == null) break;
+                    dbContext.Equipment.Remove(entity);
+                    deleted++;
+                }
+                dbContext.SaveChanges();
+                var remaining = dbContext.Equipment.Count(e => e.Type == dto.Type && e.Size == dto.Size && e.Is_In_Werehouse && !e.Is_Reserved);
+                return Ok(new { Message = "Deleted equipment items", Type = dto.Type.ToString(), Size = dto.Size.ToString(), Deleted = deleted, Remaining = remaining });
+            }
+            catch (System.Exception ex)
+            {
+                return StatusCode(500, new { Message = "Failed to delete equipment", Error = ex.Message });
+            }
         }
 
         [Authorize(Roles = "Admin,Worker")]
