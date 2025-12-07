@@ -359,6 +359,9 @@ namespace Rent.Controllers
                 order.Days = dto.Days;
                 order.Price = final;
 
+                // Ensure DueDate is not populated at creation time — it should be set only when a worker accepts the order.
+                order.DueDate = null;
+
                 _db.Orders.Update(order);
                 await _db.SaveChangesAsync();
 
@@ -375,7 +378,8 @@ namespace Rent.Controllers
  ItemsCount = order.ItemsCount,
  Days = order.Days,
  DiscountPct = pct,
- DueDate = order.OrderDate.AddDays(order.Days ??0)
+ // Do not expose computed DueDate here; only show DueDate when worker accepted (order.DueDate)
+ DueDate = order.DueDate
  });
  }
  catch (Exception ex)
@@ -385,92 +389,92 @@ namespace Rent.Controllers
  }
  }
 
-        // Preview endpoint: calculate final price and discount without creating order
-        [HttpPost("preview")]
-        public async Task<IActionResult> Preview([FromBody] CreateOrderDto dto)
+ // Preview endpoint: calculate final price and discount without creating order
+ [HttpPost("preview")]
+ public async Task<IActionResult> Preview([FromBody] CreateOrderDto dto)
+ {
+    try
+    {
+        if (dto == null) dto = new CreateOrderDto();
+        if (dto.Days <=0) dto.Days =1;
+        if (dto.BasePrice <0) dto.BasePrice =0;
+        if (dto.ItemsCount <=0) dto.ItemsCount = Math.Max(0, dto.ItemsDetail?.Sum(i => i.Quantity) ??0);
+
+        // validate stock but return as Error in body so UI can show message
+        var stockCheck = await ValidateStockAsync(dto.ItemsDetail);
+        if (!stockCheck.ok)
         {
-            try
-            {
-                if (dto == null) dto = new CreateOrderDto();
-                if (dto.Days <=0) dto.Days =1;
-                if (dto.BasePrice <0) dto.BasePrice =0;
-                if (dto.ItemsCount <=0) dto.ItemsCount = Math.Max(0, dto.ItemsDetail?.Sum(i => i.Quantity) ??0);
+            return Ok(new { Price =0m, DiscountPct =0m, Error = stockCheck.message });
+        }
 
-                // validate stock but return as Error in body so UI can show message
-                var stockCheck = await ValidateStockAsync(dto.ItemsDetail);
-                if (!stockCheck.ok)
-                {
-                    return Ok(new { Price =0m, DiscountPct =0m, Error = stockCheck.message });
-                }
+        using var conn = new SqlConnection(_cfg.GetConnectionString("DefaultConnection"));
+        await conn.OpenAsync();
 
-                using var conn = new SqlConnection(_cfg.GetConnectionString("DefaultConnection"));
-                await conn.OpenAsync();
+        using var calc = new SqlCommand("dbo.spCalculateOrderPrice", conn)
+        {
+            CommandType = System.Data.CommandType.StoredProcedure
+        };
 
-                using var calc = new SqlCommand("dbo.spCalculateOrderPrice", conn)
-                {
-                    CommandType = System.Data.CommandType.StoredProcedure
-                };
+        calc.Parameters.Add(new SqlParameter("@basePrice", System.Data.SqlDbType.Decimal)
+        {
+            Precision =18,
+            Scale =2,
+            Value = dto.BasePrice
+        });
+        calc.Parameters.Add(new SqlParameter("@itemsCount", System.Data.SqlDbType.Int)
+        {
+            Value = dto.ItemsCount
+        });
+        calc.Parameters.Add(new SqlParameter("@days", System.Data.SqlDbType.Int)
+        {
+            Value = dto.Days
+        });
 
-                calc.Parameters.Add(new SqlParameter("@basePrice", System.Data.SqlDbType.Decimal)
-                {
-                    Precision =18,
-                    Scale =2,
-                    Value = dto.BasePrice
-                });
-                calc.Parameters.Add(new SqlParameter("@itemsCount", System.Data.SqlDbType.Int)
-                {
-                    Value = dto.ItemsCount
-                });
-                calc.Parameters.Add(new SqlParameter("@days", System.Data.SqlDbType.Int)
-                {
-                    Value = dto.Days
-                });
+        var finalParam = new SqlParameter("@finalPrice", System.Data.SqlDbType.Decimal)
+        {
+            Precision =18,
+            Scale =2,
+            Direction = System.Data.ParameterDirection.Output
+        };
+        var pctParam = new SqlParameter("@discountPct", System.Data.SqlDbType.Decimal)
+        {
+            Precision =5,
+            Scale =2,
+            Direction = System.Data.ParameterDirection.Output
+        };
 
-                var finalParam = new SqlParameter("@finalPrice", System.Data.SqlDbType.Decimal)
-                {
-                    Precision =18,
-                    Scale =2,
-                    Direction = System.Data.ParameterDirection.Output
-                };
-                var pctParam = new SqlParameter("@discountPct", System.Data.SqlDbType.Decimal)
-                {
-                    Precision =5,
-                    Scale =2,
-                    Direction = System.Data.ParameterDirection.Output
-                };
+        calc.Parameters.Add(finalParam);
+        calc.Parameters.Add(pctParam);
 
-                calc.Parameters.Add(finalParam);
-                calc.Parameters.Add(pctParam);
+        await calc.ExecuteNonQueryAsync();
 
-                await calc.ExecuteNonQueryAsync();
+        var final = finalParam.Value == DBNull.Value ?0m : (decimal)finalParam.Value;
+        var pct = pctParam.Value == DBNull.Value ?0m : (decimal)pctParam.Value;
 
-                var final = finalParam.Value == DBNull.Value ?0m : (decimal)finalParam.Value;
-                var pct = pctParam.Value == DBNull.Value ?0m : (decimal)pctParam.Value;
+        // Fallback calculation if stored proc didn't provide values
+        if ((final ==0m && pct ==0m) && dto.BasePrice >0)
+        {
+            var itemsCnt = Math.Max(1, dto.ItemsCount);
+            var daysCnt = Math.Max(1, dto.Days);
+            var itemsDiscount = Math.Min((itemsCnt -1) *0.05m,0.20m);
+            var daysDiscount = Math.Min((daysCnt -1) *0.05m,0.20m);
+            var totalDiscount = itemsDiscount + daysDiscount;
+            var gross = dto.BasePrice * dto.Days;
+            var fallbackFinal = Math.Round(gross * (1 - totalDiscount),2);
 
-                // Fallback calculation if stored proc didn't provide values
-                if ((final ==0m && pct ==0m) && dto.BasePrice >0)
-                {
-                    var itemsCnt = Math.Max(1, dto.ItemsCount);
-                    var daysCnt = Math.Max(1, dto.Days);
-                    var itemsDiscount = Math.Min((itemsCnt -1) *0.05m,0.20m);
-                    var daysDiscount = Math.Min((daysCnt -1) *0.05m,0.20m);
-                    var totalDiscount = itemsDiscount + daysDiscount;
-                    var gross = dto.BasePrice * dto.Days;
-                    var fallbackFinal = Math.Round(gross * (1 - totalDiscount),2);
+            _logger.LogInformation("Preview fallback used: Items={Items}, Days={Days}, TotalDiscount={Discount}, Final={Final}", itemsCnt, daysCnt, totalDiscount, fallbackFinal);
 
-                    _logger.LogInformation("Preview fallback used: Items={Items}, Days={Days}, TotalDiscount={Discount}, Final={Final}", itemsCnt, daysCnt, totalDiscount, fallbackFinal);
+            final = fallbackFinal;
+            pct = totalDiscount;
+        }
 
-                    final = fallbackFinal;
-                    pct = totalDiscount;
-                }
-
-                return Ok(new { Price = final, DiscountPct = pct });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Preview failed");
-                return StatusCode(500, "B³¹d podgl¹du zamówienia");
-            }
+        return Ok(new { Price = final, DiscountPct = pct });
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Preview failed");
+        return StatusCode(500, "B³¹d podgl¹du zamówienia");
+    }
  }
 
         // --------------------------------------------------------------------
@@ -504,7 +508,8 @@ namespace Rent.Controllers
                     o.Id,
                     o.Rented_Items,
                     o.OrderDate,
-                    DueDate = o.OrderDate.AddDays(o.Days ??0),
+                    // show DueDate only when worker accepted the order (order.DueDate)
+                    DueDate = o.DueDate,
                     o.Price,
                     o.BasePrice,
                     o.Days,
@@ -565,7 +570,8 @@ namespace Rent.Controllers
  {
  o.Id,
  OrderDate = o.OrderDate,
- DueDate = o.OrderDate.AddDays(o.Days ??0),
+ // expose DueDate only if worker accepted (order.DueDate)
+ DueDate = o.DueDate,
  Price = o.Price,
  BasePrice = o.BasePrice,
  Days = o.Days,
@@ -618,7 +624,8 @@ namespace Rent.Controllers
  o.Id,
  o.Rented_Items,
  o.OrderDate,
- DueDate = o.OrderDate.AddDays(o.Days ??0),
+ // show DueDate only when worker accepted
+ DueDate = o.DueDate,
  o.Price,
  o.BasePrice,
  o.Days,
@@ -658,7 +665,8 @@ namespace Rent.Controllers
  o.Id,
  o.Rented_Items,
  o.OrderDate,
- DueDate = o.OrderDate.AddDays(o.Days ??0),
+ // show DueDate only when worker accepted
+ DueDate = o.DueDate,
  o.Price,
  o.BasePrice,
  o.Days,

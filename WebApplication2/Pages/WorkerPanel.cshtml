@@ -111,12 +111,51 @@
 
  function formatDateShort(raw){ if(!raw) return ''; const d = new Date(raw); if (isNaN(d.getTime())) return ''; return d.toLocaleDateString('pl-PL'); }
 
+ // normalize and safe helpers
+ function safe(v){ if (v === null || v === undefined) return ''; return String(v); }
+ function normalizeItemType(i){ if(!i) return ''; if(i.Type) return safe(i.Type); if(i.type) return safe(i.type); if(i.Equipment && (i.Equipment.Type || i.Equipment.type)) return safe(i.Equipment.Type ?? i.Equipment.type); if(i.Equipment && i.Equipment.TypeName) return safe(i.Equipment.TypeName); return ''; }
+ function normalizeItemSize(i){ if(!i) return ''; if(i.Size) return safe(i.Size); if(i.size) return safe(i.size); if(i.Equipment && (i.Equipment.Size || i.Equipment.size)) return safe(i.Equipment.Size ?? i.Equipment.size); if(i.Equipment && i.Equipment.SizeName) return safe(i.Equipment.SizeName); return ''; }
+
  function render(list, type){
  if(!Array.isArray(list) || !list.length) return '<div class="contact-item">Brak zamówieñ.</div>';
  return list.map(o=>{
- const user = o.User ? `${o.User.First_name || o.User.first_name || ''} ${o.User.Last_name || o.User.last_name || ''}`.trim() : '–';
+ // user name: support different API shapes
+ let user = '';
+ if (o.User) {
+ user = [o.User.FirstName, o.User.First_name, o.User.first_name, o.User.firstName, o.User.LastName, o.User.Last_name, o.User.last_name]
+ .filter(Boolean).slice(0,2).join(' ');
+ if (!user) {
+ // try explicit properties returned by OrdersController (FirstName/LastName)
+ user = ((o.User.FirstName || '') + ' ' + (o.User.LastName || '')).trim();
+ }
+ }
+ if (!user) user = (o.UserFirstName || o.UserFirst_Name || '') + ' ' + (o.UserLastName || o.UserLast_Name || '');
+ user = user.trim() || '—';
+
  const total = Number(o.Price ||0).toFixed(2);
- const items = (o.Items || []).map(i=>`${i.Type} ${i.Size} × ${i.Quantity} — ${Number(i.PriceWhenOrdered ||0).toFixed(2)} z³`).join('<br>');
+ // build items list defensively
+ let itemsHtml = '';
+ if (Array.isArray(o.ItemsGrouped) && o.ItemsGrouped.length){
+ itemsHtml = o.ItemsGrouped.map(g => {
+ const t = safe(g.Type || g.type || g.TypeName);
+ const s = safe(g.Size || g.size || g.SizeName);
+ const c = g.Count ?? g.count ?? '';
+ return `${t} ${s}`.trim() + (c ? ` × ${c}` : '');
+ }).join('<br>');
+ } else if (Array.isArray(o.Items) && o.Items.length) {
+ itemsHtml = o.Items.map(i => {
+ const t = normalizeItemType(i) || 'brak';
+ const s = normalizeItemSize(i) || '';
+ const q = i.Quantity ?? i.quantity ?? i.Qty ?? i.qty ??1;
+ const p = Number(i.PriceWhenOrdered ?? i.Price ?? i.price ??0).toFixed(2);
+ return `${t}${s ? ' ' + s : ''} × ${q} — ${p} z³`;
+ }).join('<br>');
+ } else {
+ // fallback to Rented_Items text
+ const rentedTxt = o.Rented_Items || o.rented_Items || o.rented_items || '';
+ itemsHtml = safe(rentedTxt);
+ }
+
  let actions = '';
  if(type === 'pending'){
  actions = `<button class='winter-button ok' data-accept='${o.Id}'>Akceptuj (wydaj)</button> <button class='winter-button danger' data-delete='${o.Id}'>Usuñ</button>`;
@@ -125,8 +164,8 @@
  }
  const due = type === 'issued' ? (formatDateShort(o.DueDate) || '') : '';
  return `<div class='order-card'>
- <div><strong>Zamówienie #${o.Id}</strong> — ${user} — Suma: ${total} z³ ${due ? `<span class='due'>Termin zwrotu: ${due}</span>` : ''}</div>
- <div class='order-items'>${items}</div>
+ <div><strong>Zamówienie #${safe(o.Id)}</strong> — ${user} — Suma: ${total} z³ ${due ? `<span class='due'>Termin zwrotu: ${due}</span>` : ''}</div>
+ <div class='order-items'>${itemsHtml}</div>
  <div class='order-actions'>${actions}</div>
  </div>`;
  }).join('');
@@ -148,18 +187,25 @@
 
  async function call(url, method){ const res = await fetch(url, { method, credentials: 'include' }); const txt = await res.text(); if(!res.ok) throw new Error(txt || ('HTTP '+res.status)); return txt; }
 
- function renderReport(list, title){ if(!Array.isArray(list)) list = list ? [list] : []; if(!list.length) return `<div class='contact-item'>Brak danych dla raportu: ${title}</div>`; return `<div class='order-items'><strong>${title}</strong></div>` + list.map(o=>{ const due = formatDateShort(o.DueDate)||''; const user = o.User ? `${o.User.First_name || ''} ${o.User.Last_Name || ''}`.trim() : ''; const items = (o.ItemsGrouped || []).map(g=>`${g.Type} ${g.Size} — ${g.Count}`).join(', '); return `<div class='order-card'>Zamówienie #${o.Id} — ${new Date(o.OrderDate).toLocaleString('pl-PL')} — ${user} — Suma: ${Number(o.Price||0).toFixed(2)} z³ ${due?` — Termin: ${due}`:''}<br><span class='order-items'>${items||''}</span></div>`; }).join(''); }
+ function renderReport(list, title){ if(!Array.isArray(list)) list = list ? [list] : []; if(!list.length) return `<div class='contact-item'>Brak danych dla raportu: ${title}</div>`; return `<div class='order-items'><strong>${title}</strong></div>` + list.map(o=>{ const due = formatDateShort(o.DueDate)||''; // user name - support shapes
+ let user = '';
+ if (o.User) user = ((o.User.FirstName || o.User.First_name || o.User.first_name || '') + ' ' + (o.User.LastName || o.User.Last_name || '')).trim();
+ if(!user) user = (o.UserFirstName || o.UserFirst_Name || '') + ' ' + (o.UserLastName || o.UserLast_Name || '');
+ user = user.trim();
+ const items = (o.ItemsGrouped || []).map(g=>`${g.Type} ${g.Size} × ${g.Count}`).join(', ');
+ return `<div class='order-card'>Zamówienie #${safe(o.Id)} — ${new Date(o.OrderDate).toLocaleString('pl-PL')} — ${user} — Suma: ${Number(o.Price||0).toFixed(2)} z³ ${due?` — Termin: ${due}`:''}<br><span class='order-items'>${items||''}</span></div>`; }).join(''); }
 
  function bind(){
  const P = document.getElementById('ordersPending'); const I = document.getElementById('ordersIssued'); const Out = document.getElementById('reportOutput'); const Msg = document.getElementById('reportMsg');
- P.querySelectorAll('[data-accept]').forEach(b=>{ b.onclick = async ()=>{ b.disabled = true; const id = b.getAttribute('data-accept'); try{ await call(`${apiBase}/api/orders/${id}/accept`, 'POST'); } finally{ b.disabled = false; load(); } } });
- P.querySelectorAll('[data-delete]').forEach(b=>{ b.onclick = async ()=>{ b.disabled = true; const id = b.getAttribute('data-delete'); try{ await call(`${apiBase}/api/orders/${id}`, 'DELETE'); } finally{ b.disabled = false; load(); } } });
- I.querySelectorAll('[data-return]').forEach(b=>{ b.onclick = async ()=>{ b.disabled = true; const id = b.getAttribute('data-return'); try{ await call(`${apiBase}/api/orders/${id}/returned`, 'POST'); } finally{ b.disabled = false; load(); } } });
+ if(P) P.querySelectorAll('[data-accept]').forEach(b=>{ b.onclick = async ()=>{ b.disabled = true; const id = b.getAttribute('data-accept'); try{ await call(`${apiBase}/api/orders/${id}/accept`, 'POST'); } finally{ b.disabled = false; load(); } } });
+ if(P) P.querySelectorAll('[data-delete]').forEach(b=>{ b.onclick = async ()=>{ b.disabled = true; const id = b.getAttribute('data-delete'); try{ await call(`${apiBase}/api/orders/${id}`, 'DELETE'); } finally{ b.disabled = false; load(); } } });
+ if(I) I.querySelectorAll('[data-return]').forEach(b=>{ b.onclick = async ()=>{ b.disabled = true; const id = b.getAttribute('data-return'); try{ await call(`${apiBase}/api/orders/${id}/returned`, 'POST'); } finally{ b.disabled = false; load(); } } });
 
  document.getElementById('btnReportByEmail').onclick = async ()=>{
  Msg.textContent = ''; Out.innerHTML = '';
  const email = document.getElementById('reportEmail').value.trim(); if(!email){ Msg.textContent = 'Podaj email lub login u¿ytkownika.'; return; }
- const res = await fetch(`${apiBase}/api/orders/by-email?email=${encodeURIComponent(email)}`, { credentials: 'include' }); const data = res.ok ? await res.json() : []; Out.innerHTML = renderReport(data, 'Raport dla: ' + email);
+ const res = await fetch(`${apiBase}/api/orders/by-email?email=${encodeURIComponent(email)}`, { credentials: 'include' }); const data = res.ok ? await res.json() : [];
+ Out.innerHTML = renderReport(data, 'Raport dla: ' + email);
  };
 
  document.getElementById('btnReportById').onclick = async ()=>{

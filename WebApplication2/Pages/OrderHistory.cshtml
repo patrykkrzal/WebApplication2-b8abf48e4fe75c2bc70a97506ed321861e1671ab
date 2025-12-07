@@ -103,29 +103,96 @@
  return 'W trakcie realizacji';
  }
 
- function buildItemsSummary(o) {
- const grouped = o.ItemsGrouped ?? o.itemsGrouped ?? o.ItemsGrouped ?? [];
- const itemsArr = o.Items ?? o.items ?? o.OrderedItems ?? o.orderedItems ?? [];
- let names = [];
+ // helper maps and normalization to support enum numeric or string shapes
+ const _typeNameMap = {0: 'Snowboard',1: 'Gloves',2: 'Poles',3: 'Helmet',4: 'Skis',5: 'Goggles'};
+ const _sizeNameMap = {0: 'Universal',1: 'Small',2: 'Medium',3: 'Large',4: 'Xl'};
+ function normalizeType(val) {
+ if (val === null || val === undefined) return '';
+ // if val is an object with 'Type'/'type' property (nested Equipment), try that
+ if (typeof val === 'object') {
+ if (val.Type !== undefined) return normalizeType(val.Type);
+ if (val.type !== undefined) return normalizeType(val.type);
+ }
+ const s = String(val).trim();
+ if (!s) return '';
+ // if numeric index
+ if (/^\d+$/.test(s)) {
+ const n = parseInt(s,10);
+ return _typeNameMap[n] || s;
+ }
+ // if enum-like string (e.g. 'Skis' or 'skis') return capitalized
+ return s.charAt(0).toUpperCase() + s.slice(1);
+ }
+ function normalizeSize(val) {
+ if (val === null || val === undefined) return '';
+ // if val is an object with 'Size'/'size' property (nested Equipment), try that
+ if (typeof val === 'object') {
+ if (val.Size !== undefined) return normalizeSize(val.Size);
+ if (val.size !== undefined) return normalizeSize(val.size);
+ }
+ const s = String(val).trim();
+ if (!s) return '';
+ if (/^\d+$/.test(s)) {
+ const n = parseInt(s,10);
+ return _sizeNameMap[n] || s;
+ }
+ // capitalize
+ return s.charAt(0).toUpperCase() + s.slice(1);
+ }
+
+ function safeText(v) { if (v === null || v === undefined) return ''; return String(v); }
+
+ function getUserFullName(o) {
+ // Try many shapes for user object and name properties
+ const user = o.User || o.user || null;
+ const parts = [];
+ function pushIf(v){ if (v !== null && v !== undefined && String(v).trim()) parts.push(String(v).trim()); }
+ if (user) {
+ pushIf(user.FirstName || user.firstName || user.First_name || user.first_name);
+ pushIf(user.LastName || user.lastName || user.Last_name || user.last_name);
+ }
+ // fallbacks on order root
+ pushIf(o.UserFirstName || o.UserFirst_Name || o.UserFirst_Name);
+ pushIf(o.UserLastName || o.UserLast_Name || o.UserLast_Name);
+ // fallback to username/email
+ if (!parts.length && user) {
+ pushIf(user.UserName || user.userName || user.Email || user.email);
+ }
+ return parts.join(' ').trim();
+ }
+
+ // render a detailed safe list of ordered items (handles multiple API shapes)
+ function renderItemsList(o) {
+ const items = o.Items || o.items || o.OrderedItems || o.orderedItems || [];
+ const grouped = o.ItemsGrouped || o.itemsGrouped || o.ItemsGrouped || [];
+ let lines = [];
 
  if (Array.isArray(grouped) && grouped.length) {
- names = grouped.map(g => `${g.Type || g.type} ${g.Size || g.size}`);
+ grouped.forEach(g => {
+ const t = normalizeType(g.Type ?? g.type ?? g.TypeIndex ?? g.Type_Id ?? g.TypeName);
+ const s = normalizeSize(g.Size ?? g.size ?? g.SizeIndex ?? g.Size_Id ?? g.SizeName);
+ const cnt = g.Count ?? g.count ?? '';
+ lines.push(`${t} ${s}`.trim() + (cnt ? ` × ${cnt}` : ''));
+ });
  }
- else if (Array.isArray(itemsArr) && itemsArr.length) {
- // itemsArr may contain OrderedItem objects with Equipment
- names = itemsArr.map(i => {
- const type = i.Type || i.type || (i.Equipment && (i.Equipment.Type || i.Equipment.type)) || '';
- const size = i.Size || i.size || (i.Equipment && (i.Equipment.Size || i.Equipment.size)) || '';
- return `${type} ${size}`.trim();
+ else if (Array.isArray(items) && items.length) {
+ items.forEach(i => {
+ // possible shapes: root Type/Size or nested Equipment
+ const rawType = i.Type ?? i.type ?? (i.Equipment && (i.Equipment.Type ?? i.Equipment.type)) ?? (i.Equipment && i.Equipment.TypeName) ?? '';
+ const rawSize = i.Size ?? i.size ?? (i.Equipment && (i.Equipment.Size ?? i.Equipment.size)) ?? (i.Equipment && i.Equipment.SizeName) ?? '';
+ const t = normalizeType(rawType) || 'brak nazwy';
+ const s = normalizeSize(rawSize) || '';
+ const qty = (i.Quantity ?? i.quantity ?? i.Qty ?? i.qty) ||1;
+ lines.push(`${t}${s ? ' ' + s : ''} × ${qty}`);
  });
  }
  else {
  const rentedTxt = o.Rented_Items ?? o.rented_Items ?? o.rented_items ?? '';
- if (rentedTxt) names = [rentedTxt];
+ if (rentedTxt) lines.push(rentedTxt);
  }
 
- const uniq = [...new Set(names.filter(Boolean))];
- return uniq.join(', ');
+ // sanitize lines: remove literal 'undefined' and trim
+ return lines.map(l => l.replace(/undefined/g, '').trim()).filter(Boolean).join(', ');
  }
 
  function formatDateShort(raw){ if(!raw) return ''; const d = new Date(raw); if (isNaN(d.getTime())) return ''; return d.toLocaleDateString('pl-PL'); }
@@ -134,10 +201,7 @@
  const id = o.Id ?? o.id;
  const price = Number(o.Price ?? o.price ??0).toFixed(2);
 
- // determine user name from multiple possible shapes
- const userName = (o.User && ((o.User.FirstName || o.User.firstName || o.User.First_name) || '') + ' ' + ((o.User.LastName || o.User.lastName || o.User.Last_name) || ''))
- || ((o.UserFirstName || o.UserFirst_Name || '') + ' ' + (o.UserLastName || o.UserLast_Name || ''))
- || o.User?.UserName || '';
+ const userName = getUserFullName(o) || ((o.User && (o.User.UserName || o.User.userName)) || '') || ((o.UserFirstName || o.UserFirst_Name || '') + ' ' + (o.UserLastName || o.UserLast_Name || '')) || o.User?.UserName || '';
 
  const dateRaw = o.OrderDate ?? o.orderDate;
  const d = dateRaw ? new Date(dateRaw) : null;
@@ -145,7 +209,7 @@
 
  const dueRaw = o.DueDate ?? o.dueDate;
  const due = dueRaw ? new Date(dueRaw) : null;
- const dueStr = due && !isNaN(due.getTime()) ? due.toLocaleDateString('pl-PL') : '';
+ const dueStr = due && !isNaN(d.getTime()) ? due.toLocaleDateString('pl-PL') : '';
 
  const statusText = deriveStatus(o);
  const lower = statusText.toLowerCase();
@@ -156,26 +220,34 @@
  lower.includes('zakończ') ? 'status-finished' :
  'status-pending';
 
- const itemsSummary = buildItemsSummary(o);
+ const itemsSummary = renderItemsList(o) || '';
  const basketText = o.Rented_Items ?? o.rented_Items ?? o.rented_items ?? '';
  const showSummary = !basketText;
+
+ // Show due date when server provided DueDate and order is not returned (covers worker accept)
+ const wasReturned = o.Was_It_Returned || o.was_It_Returned;
+ const shouldShowDue = dueStr && !wasReturned;
+
+ // final HTML, sanitize userName and itemsSummary to avoid 'undefined'
+ const safeUser = (userName || '').replace(/undefined/g, '').trim();
+ const safeItems = (itemsSummary || '').replace(/undefined/g, '').trim();
 
  return `
  <div class='order-box'>
  <div class='order-title'>
- <strong>Zamówienie #${id}</strong>
+ <strong>Zamówienie #${safeText(id)}</strong>
  <span class='status-badge ${badgeClass}'>${statusText}</span>
  </div>
 
  <div>
  Data: ${dateStr} | Suma: ${price} zł
- ${dueStr ? `<span class='due'>| Termin zwrotu: ${dueStr}</span>` : ''}
- ${userName ? `<div class='order-group'><strong>Użytkownik:</strong> ${userName}</div>` : ''}
+ ${shouldShowDue ? `<span class='due'>| Termin zwrotu: ${dueStr}</span>` : ''}
+ ${safeUser ? `<div class='order-group'><strong>Użytkownik:</strong> ${safeUser}</div>` : ''}
  </div>
 
- ${basketText ? `<div class='order-group'><em>Z koszyka:</em> ${basketText}</div>` : ''}
- ${showSummary && itemsSummary
- ? `<div class='order-items order-items-summary'>Wypożyczone przedmioty: ${itemsSummary}</div>`
+ ${basketText ? `<div class='order-group'><em>Z koszyka:</em> ${safeText(basketText)}</div>` : ''}
+ ${showSummary && safeItems
+ ? `<div class='order-items order-items-summary'>Wypożyczone przedmioty: ${safeItems}</div>`
  : ''}
  </div>
  `;
@@ -183,4 +255,4 @@
 
  document.addEventListener('DOMContentLoaded', loadOrders);
 </script>
-}
+}}
