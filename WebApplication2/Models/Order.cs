@@ -28,6 +28,9 @@ namespace Rent.Models
         [Required]
         public bool Was_It_Returned { get; set; }
 
+        // DueDate is nullable and set when worker accepts the order
+        public DateTime? DueDate { get; set; }
+
         public ICollection<OrderedItem> OrderedItems { get; set; } = new List<OrderedItem>();
 
         public User? User { get; set; }

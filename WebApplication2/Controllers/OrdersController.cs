@@ -175,14 +175,57 @@ namespace Rent.Controllers
                     await cmd.ExecuteNonQueryAsync();
                 }
 
-                // Get latest order of the user - filter by UserId column to avoid navigation issues
+                // Get latest order of the user - try UserId first, then fallbacks if SP didn't populate UserId
                 var order = await _db.Orders
                     .Where(o => o.UserId == userId)
                     .OrderByDescending(o => o.Id)
                     .FirstOrDefaultAsync();
 
                 if (order == null)
+                {
+                    _logger.LogWarning("spCreateOrder did not set UserId or no order found by UserId for user {UserId}. Trying fallback search.", userId);
+
+                    // Fallback1: find recent orders (last5 minutes) that match rentedItems or base price/items count
+                    var now = DateTime.UtcNow;
+                    var windowStart = now.AddMinutes(-5);
+
+                    var candidates = await _db.Orders
+                        .Where(o => o.OrderDate >= windowStart && (
+                             (!string.IsNullOrEmpty(o.Rented_Items) && o.Rented_Items.Contains(rentedItems)) ||
+                             (o.BasePrice == dto.BasePrice && o.ItemsCount == dto.ItemsCount)
+                         ))
+                        .OrderByDescending(o => o.Id)
+                        .ToListAsync();
+
+                    if (candidates.Any())
+                    {
+                        order = candidates.First();
+                        _logger.LogInformation("Fallback matched order Id={OrderId} for user {UserId}", order.Id, userId);
+                    }
+                    else
+                    {
+                        // Last resort: take most recent order overall (rare), but log full warning
+                        order = await _db.Orders.OrderByDescending(o => o.Id).FirstOrDefaultAsync();
+                        if (order != null)
+                            _logger.LogWarning("Fallback picked most recent order Id={OrderId} but it may not belong to user {UserId}", order.Id, userId);
+                    }
+                }
+
+                if (order == null)
                     return StatusCode(500, "Nie mo¿na utworzyæ zamówienia.");
+
+                // Ensure essential fields are set in case stored procedure didn't populate them
+                if (string.IsNullOrEmpty(order.UserId))
+                    order.UserId = userId;
+
+                if (order.OrderDate == default)
+                    order.OrderDate = DateTime.UtcNow;
+
+                if (order.Date_Of_submission == default)
+                    order.Date_Of_submission = DateOnly.FromDateTime(DateTime.UtcNow);
+
+                // mark as not returned
+                order.Was_It_Returned = false;
 
                 if ((order.Days ?? 0) <= 0)
                     order.Days = dto.Days;
@@ -437,7 +480,292 @@ namespace Rent.Controllers
         // ale ze wzglêdu na limit miejsca – mogê je sformatowaæ w kolejnym poœcie.
         // --------------------------------------------------------------------
 
+        // DEBUG: return last10 orders for current user with full data (useful during debugging)
+        [Authorize]
+        [HttpGet("debug-my")]
+        public async Task<IActionResult> DebugMyOrders()
+        {
+            try
+            {
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(userId)) return Unauthorized();
 
-    }
-}
+                var orders = await _db.Orders
+                    .Include(o => o.OrderedItems)
+                    .ThenInclude(oi => oi.Equipment)
+                    .Include(o => o.User)
+                    .OrderByDescending(o => o.Id)
+                    .Where(o => o.UserId == userId || (o.User != null && (o.User.Id == userId)))
+                    .Take(10)
+                    .ToListAsync();
+
+                var result = orders.Select(o => new
+                {
+                    o.Id,
+                    o.Rented_Items,
+                    o.OrderDate,
+                    DueDate = o.OrderDate.AddDays(o.Days ??0),
+                    o.Price,
+                    o.BasePrice,
+                    o.Days,
+                    o.ItemsCount,
+                    o.Date_Of_submission,
+                    o.Was_It_Returned,
+                    o.UserId,
+                    User = o.User != null ? new { o.User.Id, o.User.UserName, o.User.Email, FirstName = o.User.First_name, LastName = o.User.Last_name } : null,
+                    OrderedItems = o.OrderedItems.Select(oi => new {
+                        oi.OrderId,
+                        oi.EquipmentId,
+                        oi.Quantity,
+                        oi.PriceWhenOrdered,
+                        Equipment = oi.Equipment != null ? new { oi.Equipment.Id, oi.Equipment.Type, oi.Equipment.Size, oi.Equipment.Is_In_Werehouse, oi.Equipment.Is_Reserved } : null
+                    }).ToList()
+                }).ToList();
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "DebugMyOrders failed");
+                return StatusCode(500, "B³¹d debugowania zamówieñ");
+            }
+ }
+
+ // GET: api/orders - list orders for current user
+ [Authorize]
+ [HttpGet]
+ public async Task<IActionResult> GetMyOrders()
+ {
+ try
+ {
+ var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+ if (string.IsNullOrEmpty(userId))
+ return Unauthorized();
+
+ var user = await _userManager.FindByIdAsync(userId);
+ var userName = user?.UserName ?? string.Empty;
+ var userEmail = user?.Email ?? string.Empty;
+
+ var ordersQuery = _db.Orders
+ .Include(o => o.OrderedItems)
+ .ThenInclude(oi => oi.Equipment)
+ .Include(o => o.User)
+ .AsQueryable();
+
+ ordersQuery = ordersQuery.Where(o =>
+ (o.UserId != null && o.UserId == userId) ||
+ (o.User != null && (o.User.UserName == userName || o.User.Email == userEmail)) ||
+ (!string.IsNullOrEmpty(o.Rented_Items) &&
+ ((!string.IsNullOrEmpty(userName) && o.Rented_Items.Contains(userName)) ||
+ (!string.IsNullOrEmpty(userEmail) && o.Rented_Items.Contains(userEmail))))) ;
+
+ var orders = await ordersQuery.OrderByDescending(o => o.Id).ToListAsync();
+
+ var result = orders.Select(o => new
+ {
+ o.Id,
+ OrderDate = o.OrderDate,
+ DueDate = o.OrderDate.AddDays(o.Days ??0),
+ Price = o.Price,
+ BasePrice = o.BasePrice,
+ Days = o.Days,
+ ItemsCount = o.ItemsCount,
+ Rented_Items = o.Rented_Items,
+ Was_Rejected = false,
+ Was_It_Returned = o.Was_It_Returned,
+ UserFirstName = o.User != null ? o.User.First_name : null,
+ UserLastName = o.User != null ? o.User.Last_name : null,
+ Items = o.OrderedItems.Select(oi => new
+ {
+ oi.EquipmentId,
+ Type = oi.Equipment?.Type.ToString(),
+ Size = oi.Equipment?.Size.ToString(),
+ Quantity = oi.Quantity,
+ PriceWhenOrdered = oi.PriceWhenOrdered
+ }).ToList(),
+ ItemsGrouped = o.OrderedItems
+ .GroupBy(oi => new { Type = oi.Equipment.Type.ToString(), Size = oi.Equipment.Size.ToString() })
+ .Select(g => new { Type = g.Key.Type, Size = g.Key.Size, Count = g.Sum(x => x.Quantity) })
+ .ToList()
+ }).ToList();
+
+ return Ok(result);
+ }
+ catch (Exception ex)
+ {
+ _logger.LogError(ex, "GetMyOrders failed");
+ return StatusCode(500, "B³¹d pobierania zamówieñ");
+ }
+ }
+
+ // Worker endpoints: pending / issued and actions
+ [Authorize(Roles = "Admin,Worker")]
+ [HttpGet("pending")]
+ public async Task<IActionResult> GetPending()
+ {
+ var orders = await _db.Orders
+ .Include(o => o.OrderedItems)
+ .ThenInclude(oi => oi.Equipment)
+ .Include(o => o.User)
+ .Where(o => !o.Was_It_Returned && o.OrderedItems.Any())
+ .ToListAsync();
+
+ // pending = any ordered item still in warehouse and reserved
+ var pending = orders
+ .Where(o => o.OrderedItems.Any(oi => (oi.Equipment != null) && oi.Equipment.Is_In_Werehouse && oi.Equipment.Is_Reserved))
+ .Select(o => new
+ {
+ o.Id,
+ o.Rented_Items,
+ o.OrderDate,
+ DueDate = o.OrderDate.AddDays(o.Days ??0),
+ o.Price,
+ o.BasePrice,
+ o.Days,
+ o.ItemsCount,
+ o.UserId,
+ User = o.User != null ? new { o.User.Id, o.User.UserName, o.User.Email, FirstName = o.User.First_name, LastName = o.User.Last_name } : null,
+ Items = o.OrderedItems.Select(oi => new
+ {
+ oi.OrderId,
+ oi.EquipmentId,
+ oi.Quantity,
+ oi.PriceWhenOrdered,
+ Equipment = oi.Equipment != null ? new { oi.Equipment.Id, oi.Equipment.Type, oi.Equipment.Size, oi.Equipment.Is_In_Werehouse, oi.Equipment.Is_Reserved } : null
+ }).ToList()
+ })
+ .ToList();
+
+ return Ok(pending);
+ }
+
+ [Authorize(Roles = "Admin,Worker")]
+ [HttpGet("issued")]
+ public async Task<IActionResult> GetIssued()
+ {
+ var orders = await _db.Orders
+ .Include(o => o.OrderedItems)
+ .ThenInclude(oi => oi.Equipment)
+ .Include(o => o.User)
+ .Where(o => !o.Was_It_Returned && o.OrderedItems.Any())
+ .ToListAsync();
+
+ // issued = any ordered item is out of warehouse (Is_In_Werehouse == false)
+ var issued = orders
+ .Where(o => o.OrderedItems.Any(oi => (oi.Equipment != null) && !oi.Equipment.Is_In_Werehouse && oi.Equipment.Is_Reserved))
+ .Select(o => new
+ {
+ o.Id,
+ o.Rented_Items,
+ o.OrderDate,
+ DueDate = o.OrderDate.AddDays(o.Days ??0),
+ o.Price,
+ o.BasePrice,
+ o.Days,
+ o.ItemsCount,
+ o.UserId,
+ User = o.User != null ? new { o.User.Id, o.User.UserName, o.User.Email, FirstName = o.User.First_name, LastName = o.User.Last_name } : null,
+ Items = o.OrderedItems.Select(oi => new
+ {
+ oi.OrderId,
+ oi.EquipmentId,
+ oi.Quantity,
+ oi.PriceWhenOrdered,
+ Equipment = oi.Equipment != null ? new { oi.Equipment.Id, oi.Equipment.Type, oi.Equipment.Size, oi.Equipment.Is_In_Werehouse, oi.Equipment.Is_Reserved } : null
+ }).ToList()
+ })
+ .ToList();
+
+ return Ok(issued);
+ }
+
+ [Authorize(Roles = "Admin,Worker")]
+ [HttpPost("{id:int}/accept")]
+ public async Task<IActionResult> AcceptOrder(int id)
+ {
+ var order = await _db.Orders
+ .Include(o => o.OrderedItems)
+ .ThenInclude(oi => oi.Equipment)
+ .Include(o => o.User)
+ .FirstOrDefaultAsync(o => o.Id == id);
+ if (order == null) return NotFound();
+
+ // mark equipment as taken out (Is_In_Werehouse = false)
+ foreach (var oi in order.OrderedItems)
+ {
+ if (oi.Equipment != null)
+ {
+ oi.Equipment.Is_In_Werehouse = false;
+ // keep Is_Reserved = true until returned
+ }
+ }
+
+ // Set DueDate based on OrderDate + Days (or from now if Days null)
+ if (order.Days.HasValue && order.Days.Value >0)
+ {
+ order.DueDate = order.OrderDate.AddDays(order.Days.Value);
+ }
+ else
+ {
+ order.DueDate = DateTime.UtcNow.AddDays(order.Days ??1);
+ }
+
+ await _db.SaveChangesAsync();
+ return Ok(new { Message = "Accepted", DueDate = order.DueDate, UserFirstName = order.User?.First_name, UserLastName = order.User?.Last_name });
+ }
+
+ [Authorize(Roles = "Admin,Worker")]
+ [HttpPost("{id:int}/returned")]
+ public async Task<IActionResult> MarkReturned(int id)
+ {
+ var order = await _db.Orders
+ .Include(o => o.OrderedItems)
+ .ThenInclude(oi => oi.Equipment)
+ .FirstOrDefaultAsync(o => o.Id == id);
+ if (order == null) return NotFound();
+
+ order.Was_It_Returned = true;
+
+ foreach (var oi in order.OrderedItems)
+ {
+ if (oi.Equipment != null)
+ {
+ oi.Equipment.Is_In_Werehouse = true;
+ oi.Equipment.Is_Reserved = false;
+ }
+ }
+
+ await _db.SaveChangesAsync();
+ return Ok(new { Message = "Marked returned" });
+ }
+
+ [Authorize(Roles = "Admin,Worker")]
+ [HttpDelete("{id:int}")]
+ public async Task<IActionResult> DeleteOrder(int id)
+ {
+ var order = await _db.Orders
+ .Include(o => o.OrderedItems)
+ .ThenInclude(oi => oi.Equipment)
+ .FirstOrDefaultAsync(o => o.Id == id);
+ if (order == null) return NotFound();
+
+ // Release any reserved equipment
+ foreach (var oi in order.OrderedItems)
+ {
+ if (oi.Equipment != null)
+ {
+ oi.Equipment.Is_In_Werehouse = true;
+ oi.Equipment.Is_Reserved = false;
+ }
+ }
+
+ // Mark order as returned/deleted (soft cancel)
+ order.Was_It_Returned = true;
+ order.Rented_Items = (order.Rented_Items ?? "") + " (cancelled)";
+
+ await _db.SaveChangesAsync();
+ return Ok(new { Message = "Order cancelled" });
+ }
+ }
+ }
 

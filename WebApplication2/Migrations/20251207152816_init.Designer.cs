@@ -12,7 +12,7 @@ using Rent.Data;
 namespace Rent.Migrations
 {
     [DbContext(typeof(DataContext))]
-    [Migration("20251206235825_init")]
+    [Migration("20251207152816_init")]
     partial class init
     {
         /// <inheritdoc />
@@ -235,6 +235,9 @@ namespace Rent.Migrations
 
                     b.Property<int?>("Days")
                         .HasColumnType("int");
+
+                    b.Property<DateTime?>("DueDate")
+                        .HasColumnType("datetime2");
 
                     b.Property<int?>("ItemsCount")
                         .HasColumnType("int");

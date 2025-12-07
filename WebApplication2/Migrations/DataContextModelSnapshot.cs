@@ -233,6 +233,9 @@ namespace Rent.Migrations
                     b.Property<int?>("Days")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("DueDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<int?>("ItemsCount")
                         .HasColumnType("int");
 

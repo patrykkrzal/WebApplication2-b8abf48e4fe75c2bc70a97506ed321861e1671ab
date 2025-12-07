@@ -62,14 +62,22 @@
  }
 
  const list = await res.json();
+ console.debug('loadOrders response', list);
  if (!Array.isArray(list) || !list.length) {
  el.textContent = 'Brak zamówień.';
  return;
  }
 
+ // render defensively
+ try {
  el.innerHTML = list.map(o => renderOrder(o)).join('');
+ } catch (renderErr) {
+ console.error('renderOrder failed', renderErr);
+ el.textContent = 'Błąd renderowania zamówień.';
+ }
  }
  catch (err) {
+ console.error('loadOrders error', err);
  el.textContent = 'Błąd: ' + (err.message || err);
  }
  }
@@ -81,11 +89,12 @@
  if (status) return status;
 
  const wasReturned = o.Was_It_Returned || o.was_It_Returned;
- const items = o.Items || o.items || [];
+ // prefer Items, fall back to OrderedItems
+ const items = o.Items || o.items || o.OrderedItems || o.orderedItems || [];
 
- const anyOutReserved = items.some(i =>
- ((i.Is_In_Werehouse === false) || (i.is_In_Werehouse === false)) &&
- ((i.Is_Reserved === true) || (i.is_Reserved === true))
+ const anyOutReserved = Array.isArray(items) && items.some(i =>
+ ((i.Is_In_Werehouse === false) || (i.is_In_Werehouse === false) || (i.Equipment && i.Equipment.Is_In_Werehouse === false)) &&
+ ((i.Is_Reserved === true) || (i.is_Reserved === true) || (i.Equipment && i.Equipment.Is_Reserved === true))
  );
 
  if (wasReturned) return 'Zakończona realizacja';
@@ -95,15 +104,20 @@
  }
 
  function buildItemsSummary(o) {
- const grouped = o.ItemsGrouped ?? o.itemsGrouped ?? [];
- const itemsArr = o.Items ?? o.items ?? [];
+ const grouped = o.ItemsGrouped ?? o.itemsGrouped ?? o.ItemsGrouped ?? [];
+ const itemsArr = o.Items ?? o.items ?? o.OrderedItems ?? o.orderedItems ?? [];
  let names = [];
 
  if (Array.isArray(grouped) && grouped.length) {
  names = grouped.map(g => `${g.Type || g.type} ${g.Size || g.size}`);
  }
  else if (Array.isArray(itemsArr) && itemsArr.length) {
- names = itemsArr.map(i => `${i.Type || i.type} ${i.Size || i.size}`);
+ // itemsArr may contain OrderedItem objects with Equipment
+ names = itemsArr.map(i => {
+ const type = i.Type || i.type || (i.Equipment && (i.Equipment.Type || i.Equipment.type)) || '';
+ const size = i.Size || i.size || (i.Equipment && (i.Equipment.Size || i.Equipment.size)) || '';
+ return `${type} ${size}`.trim();
+ });
  }
  else {
  const rentedTxt = o.Rented_Items ?? o.rented_Items ?? o.rented_items ?? '';
@@ -114,9 +128,16 @@
  return uniq.join(', ');
  }
 
+ function formatDateShort(raw){ if(!raw) return ''; const d = new Date(raw); if (isNaN(d.getTime())) return ''; return d.toLocaleDateString('pl-PL'); }
+
  function renderOrder(o) {
  const id = o.Id ?? o.id;
  const price = Number(o.Price ?? o.price ??0).toFixed(2);
+
+ // determine user name from multiple possible shapes
+ const userName = (o.User && ((o.User.FirstName || o.User.firstName || o.User.First_name) || '') + ' ' + ((o.User.LastName || o.User.lastName || o.User.Last_name) || ''))
+ || ((o.UserFirstName || o.UserFirst_Name || '') + ' ' + (o.UserLastName || o.UserLast_Name || ''))
+ || o.User?.UserName || '';
 
  const dateRaw = o.OrderDate ?? o.orderDate;
  const d = dateRaw ? new Date(dateRaw) : null;
@@ -124,7 +145,7 @@
 
  const dueRaw = o.DueDate ?? o.dueDate;
  const due = dueRaw ? new Date(dueRaw) : null;
- const dueStr = due && !isNaN(d.getTime()) ? due.toLocaleDateString('pl-PL') : '';
+ const dueStr = due && !isNaN(due.getTime()) ? due.toLocaleDateString('pl-PL') : '';
 
  const statusText = deriveStatus(o);
  const lower = statusText.toLowerCase();
@@ -149,6 +170,7 @@
  <div>
  Data: ${dateStr} | Suma: ${price} zł
  ${dueStr ? `<span class='due'>| Termin zwrotu: ${dueStr}</span>` : ''}
+ ${userName ? `<div class='order-group'><strong>Użytkownik:</strong> ${userName}</div>` : ''}
  </div>
 
  ${basketText ? `<div class='order-group'><em>Z koszyka:</em> ${basketText}</div>` : ''}

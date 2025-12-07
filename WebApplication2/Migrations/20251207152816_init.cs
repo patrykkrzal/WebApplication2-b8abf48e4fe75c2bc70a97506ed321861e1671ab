@@ -265,6 +265,7 @@ namespace Rent.Migrations
                     ItemsCount = table.Column<int>(type: "int", nullable: true),
                     Date_Of_submission = table.Column<DateOnly>(type: "date", nullable: false),
                     Was_It_Returned = table.Column<bool>(type: "bit", nullable: false),
+                    DueDate = table.Column<DateTime>(type: "datetime2", nullable: true),
                     UserId = table.Column<string>(type: "nvarchar(450)", nullable: true),
                     RentalInfoId = table.Column<int>(type: "int", nullable: true)
                 },
