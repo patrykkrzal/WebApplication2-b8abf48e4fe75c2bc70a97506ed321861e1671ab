@@ -3,54 +3,19 @@
  ViewData["Title"] = "Dodaj / Usuń sprzęt";
 }
 
+<style>
+/* Keep outer content-section background intact; only remove inner form "card" for add/delete page */
+.form-box { background: transparent !important; box-shadow: none !important; padding:0 !important; margin-top:12px !important; }
+</style>
+
 <h1 class="winter-title">Zarządzanie sprzętem</h1>
-<p class="mb-3">Dodaj lub usuń pojedynczą pozycję. Dostęp tylko dla ról Admin lub Pracownik.</p>
 
-<div id="roleGuard" class="alert alert-warning" style="display:none">
- Brak uprawnień. Ta strona jest dostępna tylko dla użytkowników z rolą Admin lub Worker.
-</div>
-
-<!-- Global price setter at the top (styled like other forms) -->
-<div class="content-section" style="max-width:900px; margin:12px auto; padding:12px;">
- <div class="form-box">
- <h2 class="winter-title" style="font-size:1.1rem;">💲 Ustaw globalną cenę</h2>
- <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
- <label style="display:flex; gap:6px; align-items:center;">Typ
- <select id="gPriceType" class="form-select">
- <option value="">-- wybierz --</option>
- <option value="Skis">Narty</option>
- <option value="Helmet">Kask</option>
- <option value="Gloves">Rękawice</option>
- <option value="Poles">Kijki</option>
- <option value="Snowboard">Snowboard</option>
- <option value="Goggles">Gogle</option>
- </select>
- </label>
- <label style="display:flex; gap:6px; align-items:center;">Rozmiar
- <select id="gPriceSize" class="form-select">
- <option value="">-- wybierz --</option>
- <option value="Universal">Uniwersalny</option>
- <option value="Small">Mały</option>
- <option value="Medium">Średni</option>
- <option value="Large">Duży</option>
- <option value="Xl">XL</option>
- </select>
- </label>
- <label style="display:flex; gap:6px; align-items:center;">Cena
- <input id="gPriceValue" type="number" step="0.01" min="0" class="form-control" style="width:140px;" />
- </label>
- <button id="gPriceSave" class="submit-btn">💾 Zapisz</button>
- <div id="gPriceMsg" class="msg"></div>
- </div>
- </div>
-</div>
-
-<!-- Add/Delete form below, centered like the price box -->
-<div class="content-section" style="max-width:900px; margin:18px auto; padding:12px;">
+<!-- Add/Delete form below, centered using dedicated CSS -->
+<div class="add-item-wrapper">
  <details class="user-panel" id="addPanel" open>
  <summary class="winter-button" aria-label="Dodaj sprzęt">➕ / ➖ Sprzęt</summary>
 
- <form id="addItemForm" class="form-box" novalidate style="display:none">
+ <form id="addItemForm" class="form-box" novalidate>
  <div class="mb-3">
  <label for="type">Rodzaj sprzętu</label>
  <select id="type" name="Type" class="form-select" required>
@@ -133,10 +98,6 @@
  throw (typeof text === 'string' ? new Error(text) : new Error(JSON.stringify(text)));
 
  return text;
- }
-
- async function setGlobalPrice(type, size, price) {
- return await postJson(`${apiBase}/api/equipment/prices`, { Type: type, Size: size, Price: price });
  }
 
  async function getMe() {
@@ -246,12 +207,12 @@
  const hasAccess = rolesLower.includes('admin') || rolesLower.includes('worker');
 
  if (!hasAccess) {
- guard.style.display = 'block';
- form.style.display = 'none';
+ if (guard) guard.style.display = 'block';
+ if (form) form.style.display = 'none';
  document.getElementById('addPanel').classList.add('disabled');
  } else {
- guard.style.display = 'none';
- form.style.display = 'block';
+ if (guard) guard.style.display = 'none';
+ if (form) form.style.display = 'block';
  document.getElementById('addPanel').classList.remove('disabled');
  }
  }
@@ -281,26 +242,6 @@
  } catch (err) {
  msg.className = 'msg error';
  msg.textContent = '❌ Błąd: ' + (err.message || err);
- }
- });
-
- document.getElementById('gPriceSave').addEventListener('click', async (e) => {
- e.preventDefault();
- const msg = document.getElementById('gPriceMsg');
- msg.className = 'msg';
- msg.textContent = 'Ustawianie ceny...';
- try {
- const type = document.getElementById('gPriceType').value;
- const size = document.getElementById('gPriceSize').value;
- const priceRaw = document.getElementById('gPriceValue').value;
- const priceNum = parseFloat(priceRaw);
- if (!type || !size || !Number.isFinite(priceNum)) throw new Error('Wybierz typ, rozmiar i podaj cenę (liczba)');
- const res = await setGlobalPrice(type, size, priceNum);
- msg.className = 'msg success';
- msg.textContent = `💾 Zapisano cenę: ${type} ${size} => ${priceNum.toFixed(2)}`;
- } catch (err) {
- msg.className = 'msg error';
- msg.textContent = '❌ Błąd ustawiania ceny: ' + (err.message || err);
  }
  });
 

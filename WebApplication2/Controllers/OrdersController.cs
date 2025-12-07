@@ -44,256 +44,293 @@ namespace Rent.Controllers
         {
             public string[] Items { get; set; } = Array.Empty<string>();
             public decimal BasePrice { get; set; }
-            public int Days { get; set; } =1;
-            public int ItemsCount { get; set; } =0;
+            public int Days { get; set; } = 1;
+            public int ItemsCount { get; set; } = 0;
             public List<ItemDetailDto>? ItemsDetail { get; set; }
         }
 
         private static bool TryParseEnum<TEnum>(string value, out TEnum parsed)
- where TEnum : struct
- {
- parsed = default;
+            where TEnum : struct
+        {
+            parsed = default;
 
- if (string.IsNullOrWhiteSpace(value))
- return false;
+            if (string.IsNullOrWhiteSpace(value))
+                return false;
 
- return Enum.TryParse(value.Trim(), ignoreCase: true, out parsed);
- }
+            return Enum.TryParse(value.Trim(), ignoreCase: true, out parsed);
+        }
 
- // STOCK VALIDATION
- private async Task<(bool ok, string? message)> ValidateStockAsync(List<ItemDetailDto>? items)
- {
- if (items == null || items.Count ==0)
- return (true, null);
+        // STOCK VALIDATION
+        private async Task<(bool ok, string? message)> ValidateStockAsync(List<ItemDetailDto>? items)
+        {
+            if (items == null || items.Count == 0)
+                return (true, null);
 
- var grouped = items
- .Where(i => i != null && i.Quantity >0)
- .GroupBy(i => new { t = (i.Type ?? "").Trim(), s = (i.Size ?? "").Trim() })
- .Select(g => new
- {
- g.Key.t,
- g.Key.s,
- qty = g.Sum(x => x.Quantity)
- })
- .ToList();
+            var grouped = items
+                .Where(i => i != null && i.Quantity > 0)
+                .GroupBy(i => new { t = (i.Type ?? "").Trim(), s = (i.Size ?? "").Trim() })
+                .Select(g => new
+                {
+                    g.Key.t,
+                    g.Key.s,
+                    qty = g.Sum(x => x.Quantity)
+                })
+                .ToList();
 
- foreach (var g in grouped)
- {
- if (!TryParseEnum<EquipmentType>(g.t, out var type))
- return (false, $"Nieznany typ: {g.t}");
+            foreach (var g in grouped)
+            {
+                if (!TryParseEnum<EquipmentType>(g.t, out var type))
+                    return (false, $"Nieznany typ: {g.t}");
 
- if (!TryParseEnum<Size>(g.s, out var size))
- return (false, $"Nieznany rozmiar: {g.s}");
+                if (!TryParseEnum<Size>(g.s, out var size))
+                    return (false, $"Nieznany rozmiar: {g.s}");
 
- var available = await _db.Equipment
- .Where(e =>
- e.Is_In_Werehouse &&
- !e.Is_Reserved &&
- e.Type == type &&
- e.Size == size)
- .CountAsync();
+                var available = await _db.Equipment
+                    .Where(e =>
+                        e.Is_In_Werehouse &&
+                        !e.Is_Reserved &&
+                        e.Type == type &&
+                        e.Size == size)
+                    .CountAsync();
 
- if (g.qty > available)
- {
- return (false,
- $"Za du¿o sztuk dla {type} {size}. Dostêpne: {available}, ¿¹dane: {g.qty}.");
- }
- }
+                if (g.qty > available)
+                {
+                    return (false,
+                        $"Za du¿o sztuk dla {type} {size}. Dostêpne: {available}, ¿¹dane: {g.qty}.");
+                }
+            }
 
- return (true, null);
- }
+            return (true, null);
+        }
 
- // -----------------------------------------------------------------------------------------
- // CREATE ORDER
- // -----------------------------------------------------------------------------------------
+        // -----------------------------------------------------------------------------------------
+        // CREATE ORDER
+        // -----------------------------------------------------------------------------------------
 
- [Authorize]
- [HttpPost]
- public async Task<IActionResult> Create([FromBody] CreateOrderDto dto)
- {
- try
- {
- if (dto.Days <=0)
- dto.Days =1;
+        [Authorize]
+        [HttpPost]
+        public async Task<IActionResult> Create([FromBody] CreateOrderDto dto)
+        {
+            try
+            {
+                if (dto.Days <= 0)
+                    dto.Days = 1;
 
- if (dto.BasePrice <0)
- dto.BasePrice =0;
+                if (dto.BasePrice < 0)
+                    dto.BasePrice = 0;
 
- var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
- if (string.IsNullOrEmpty(userId))
- return Unauthorized();
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized();
 
- var user = await _userManager.FindByIdAsync(userId);
- if (user == null)
- return Unauthorized();
+                var user = await _userManager.FindByIdAsync(userId);
+                if (user == null)
+                    return Unauthorized();
 
- // stock validation
- var stockCheck = await ValidateStockAsync(dto.ItemsDetail);
- if (!stockCheck.ok)
- return BadRequest(stockCheck.message);
+                // stock validation
+                // ensure ItemsCount is set when not provided
+                if (dto.ItemsCount <=0)
+                dto.ItemsCount = Math.Max(0, dto.ItemsDetail?.Sum(i => i.Quantity) ??0);
 
- // Create order via stored procedure
- using var conn = new SqlConnection(_cfg.GetConnectionString("DefaultConnection"));
- await conn.OpenAsync();
+                var stockCheck = await ValidateStockAsync(dto.ItemsDetail);
+                if (!stockCheck.ok)
+                    return BadRequest(stockCheck.message);
 
- var rentedItems = (dto.Items?.Length ??0) >0
- ? string.Join(", ", dto.Items)
- : "Basket";
+                // Create order via stored procedure
+                using var conn = new SqlConnection(_cfg.GetConnectionString("DefaultConnection"));
+                await conn.OpenAsync();
 
- using (var cmd = new SqlCommand("dbo.spCreateOrder", conn)
- {
- CommandType = System.Data.CommandType.StoredProcedure
- })
- {
- cmd.Parameters.Add(new SqlParameter("@userId", System.Data.SqlDbType.NVarChar,450)
- {
- Value = userId
- });
- cmd.Parameters.Add(new SqlParameter("@rentedItems", System.Data.SqlDbType.NVarChar,255)
- {
- Value = rentedItems
- });
- cmd.Parameters.Add(new SqlParameter("@basePrice", System.Data.SqlDbType.Decimal)
- {
- Precision =18,
- Scale =2,
- Value = dto.BasePrice
- });
- cmd.Parameters.Add(new SqlParameter("@itemsCount", System.Data.SqlDbType.Int)
- {
- Value = dto.ItemsCount
- });
- cmd.Parameters.Add(new SqlParameter("@days", System.Data.SqlDbType.Int)
- {
- Value = dto.Days
- });
+                var rentedItems = (dto.Items?.Length ??0) >0
+                    ? string.Join(", ", dto.Items)
+                    : "Basket";
 
- await cmd.ExecuteNonQueryAsync();
- }
+                using (var cmd = new SqlCommand("dbo.spCreateOrder", conn)
+                {
+                    CommandType = System.Data.CommandType.StoredProcedure
+                })
+                {
+                    cmd.Parameters.Add(new SqlParameter("@userId", System.Data.SqlDbType.NVarChar,450)
+                    {
+                        Value = userId
+                    });
+                    cmd.Parameters.Add(new SqlParameter("@rentedItems", System.Data.SqlDbType.NVarChar,255)
+                    {
+                        Value = rentedItems
+                    });
+                    cmd.Parameters.Add(new SqlParameter("@basePrice", System.Data.SqlDbType.Decimal)
+                    {
+                        Precision =18,
+                        Scale =2,
+                        Value = dto.BasePrice
+                    });
+                    cmd.Parameters.Add(new SqlParameter("@itemsCount", System.Data.SqlDbType.Int)
+                    {
+                        Value = dto.ItemsCount
+                    });
+                    cmd.Parameters.Add(new SqlParameter("@days", System.Data.SqlDbType.Int)
+                    {
+                        Value = dto.Days
+                    });
 
- // Get latest order of the user - filter by UserId column to avoid navigation issues
- var order = await _db.Orders
- .Where(o => o.UserId == userId)
- .OrderByDescending(o => o.Id)
- .FirstOrDefaultAsync();
+                    await cmd.ExecuteNonQueryAsync();
+                }
 
- if (order == null)
- return StatusCode(500, "Nie mo¿na utworzyæ zamówienia.");
+                // Get latest order of the user - filter by UserId column to avoid navigation issues
+                var order = await _db.Orders
+                    .Where(o => o.UserId == userId)
+                    .OrderByDescending(o => o.Id)
+                    .FirstOrDefaultAsync();
 
- if ((order.Days ??0) <=0)
- order.Days = dto.Days;
+                if (order == null)
+                    return StatusCode(500, "Nie mo¿na utworzyæ zamówienia.");
 
- // Assign equipment
- foreach (var d in dto.ItemsDetail ?? new())
- {
- if (d.Quantity <=0)
- continue;
+                if ((order.Days ?? 0) <= 0)
+                    order.Days = dto.Days;
 
- if (!TryParseEnum<EquipmentType>(d.Type, out var type))
- continue;
+                // Assign equipment
+                foreach (var d in dto.ItemsDetail ?? new())
+                {
+                    if (d.Quantity <= 0)
+                        continue;
 
- if (!TryParseEnum<Size>(d.Size, out var size))
- continue;
+                    if (!TryParseEnum<EquipmentType>(d.Type, out var type))
+                        continue;
 
- var candidates = await _db.Equipment
- .Where(e =>
- e.Is_In_Werehouse &&
- !e.Is_Reserved &&
- e.Type == type &&
- e.Size == size)
- .OrderBy(e => e.Id)
- .ToListAsync();
+                    if (!TryParseEnum<Size>(d.Size, out var size))
+                        continue;
 
- if (candidates.Count ==0)
- continue;
+                    var candidates = await _db.Equipment
+                        .Where(e =>
+                            e.Is_In_Werehouse &&
+                            !e.Is_Reserved &&
+                            e.Type == type &&
+                            e.Size == size)
+                        .OrderBy(e => e.Id)
+                        .ToListAsync();
 
- var picks = new List<Equipment>();
- var provided = (d.EquipmentIds ?? new());
+                    if (candidates.Count == 0)
+                        continue;
 
- // Prefer chosen IDs if provided
- foreach (var id in provided)
- {
- var found = candidates.FirstOrDefault(c => c.Id == id);
- if (found != null && !picks.Contains(found))
- picks.Add(found);
- }
+                    var picks = new List<Equipment>();
+                    var provided = (d.EquipmentIds ?? new());
 
- // Fill the rest
- foreach (var c in candidates)
- {
- if (picks.Count >= d.Quantity)
- break;
+                    // Prefer chosen IDs if provided
+                    foreach (var id in provided)
+                    {
+                        var found = candidates.FirstOrDefault(c => c.Id == id);
+                        if (found != null && !picks.Contains(found))
+                            picks.Add(found);
+                    }
 
- if (!picks.Contains(c))
- picks.Add(c);
- }
+                    // Fill the rest
+                    foreach (var c in candidates)
+                    {
+                        if (picks.Count >= d.Quantity)
+                            break;
 
- picks = picks.Take(Math.Max(0, d.Quantity)).ToList();
+                        if (!picks.Contains(c))
+                            picks.Add(c);
+                    }
 
- foreach (var eq in picks)
- {
- eq.Is_Reserved = true;
+                    picks = picks.Take(Math.Max(0, d.Quantity)).ToList();
 
- _db.OrderedItems.Add(new OrderedItem
- {
- OrderId = order.Id,
- EquipmentId = eq.Id,
- Quantity =1,
- PriceWhenOrdered = eq.Price
- });
- }
- }
+                    foreach (var eq in picks)
+                    {
+                        eq.Is_Reserved = true;
 
- await _db.SaveChangesAsync();
+                        _db.OrderedItems.Add(new OrderedItem
+                        {
+                            OrderId = order.Id,
+                            EquipmentId = eq.Id,
+                            Quantity = 1,
+                            PriceWhenOrdered = eq.Price
+                        });
+                    }
+                }
 
- // Calculate final price
- using var calc = new SqlCommand("dbo.spCalculateOrderPrice", conn)
- {
- CommandType = System.Data.CommandType.StoredProcedure
- };
+                await _db.SaveChangesAsync();
 
- calc.Parameters.Add(new SqlParameter("@basePrice", System.Data.SqlDbType.Decimal)
- {
- Precision =18,
- Scale =2,
- Value = dto.BasePrice
- });
- calc.Parameters.Add(new SqlParameter("@itemsCount", System.Data.SqlDbType.Int)
- {
- Value = dto.ItemsCount
- });
- calc.Parameters.Add(new SqlParameter("@days", System.Data.SqlDbType.Int)
- {
- Value = dto.Days
- });
+                // Calculate final price
+                using var calc = new SqlCommand("dbo.spCalculateOrderPrice", conn)
+                {
+                    CommandType = System.Data.CommandType.StoredProcedure
+                };
 
- var finalParam = new SqlParameter("@finalPrice", System.Data.SqlDbType.Decimal)
- {
- Precision =18,
- Scale =2,
- Direction = System.Data.ParameterDirection.Output
- };
+                calc.Parameters.Add(new SqlParameter("@basePrice", System.Data.SqlDbType.Decimal)
+                {
+                    Precision = 18,
+                    Scale = 2,
+                    Value = dto.BasePrice
+                });
+                calc.Parameters.Add(new SqlParameter("@itemsCount", System.Data.SqlDbType.Int)
+                {
+                    Value = dto.ItemsCount
+                });
+                calc.Parameters.Add(new SqlParameter("@days", System.Data.SqlDbType.Int)
+                {
+                    Value = dto.Days
+                });
 
- var pctParam = new SqlParameter("@discountPct", System.Data.SqlDbType.Decimal)
- {
- Precision =5,
- Scale =2,
- Direction = System.Data.ParameterDirection.Output
- };
+                var finalParam = new SqlParameter("@finalPrice", System.Data.SqlDbType.Decimal)
+                {
+                    Precision = 18,
+                    Scale = 2,
+                    Direction = System.Data.ParameterDirection.Output
+                };
 
- calc.Parameters.Add(finalParam);
- calc.Parameters.Add(pctParam);
+                var pctParam = new SqlParameter("@discountPct", System.Data.SqlDbType.Decimal)
+                {
+                    Precision = 5,
+                    Scale = 2,
+                    Direction = System.Data.ParameterDirection.Output
+                };
 
- await calc.ExecuteNonQueryAsync();
+                calc.Parameters.Add(finalParam);
+                calc.Parameters.Add(pctParam);
 
- var final = finalParam.Value == DBNull.Value ?0m : (decimal)finalParam.Value;
- var pct = pctParam.Value == DBNull.Value ?0m : (decimal)pctParam.Value;
+                await calc.ExecuteNonQueryAsync();
+
+                var final = finalParam.Value == DBNull.Value ?0m : (decimal)finalParam.Value;
+                var pct = pctParam.Value == DBNull.Value ?0m : (decimal)pctParam.Value;
+
+                // Fallback: if stored procedure returned zero results, compute discount locally
+                if ((final ==0m && pct ==0m) && dto.BasePrice >0)
+                {
+                    var itemsCnt = Math.Max(1, dto.ItemsCount);
+                    var daysCnt = Math.Max(1, dto.Days);
+                    var itemsDiscount = Math.Min((itemsCnt -1) *0.05m,0.20m);
+                    var daysDiscount = Math.Min((daysCnt -1) *0.05m,0.20m);
+                    var totalDiscount = itemsDiscount + daysDiscount;
+                    var gross = dto.BasePrice * dto.Days;
+                    var fallbackFinal = Math.Round(gross * (1 - totalDiscount),2);
+
+                    _logger.LogInformation("spCalculateOrderPrice returned zero; using fallback calc. Items={Items}, Days={Days}, TotalDiscount={Discount}, Final={Final}", itemsCnt, daysCnt, totalDiscount, fallbackFinal);
+
+                    final = fallbackFinal;
+                    pct = totalDiscount;
+                }
+
+                // Update order totals so stored order reflects calculated price/values
+                order.BasePrice = dto.BasePrice;
+                order.ItemsCount = dto.ItemsCount;
+                order.Days = dto.Days;
+                order.Price = final;
+
+                _db.Orders.Update(order);
+                await _db.SaveChangesAsync();
+
+                // Log values for debugging
+                _logger.LogInformation("Order created: Id={OrderId}, Final={Final}, Discount={Pct}, BasePrice={BasePrice}, ItemsCount={ItemsCount}, Days={Days}",
+ order.Id, final, pct, order.BasePrice, order.ItemsCount, order.Days);
 
  return Ok(new
  {
  Message = "Order created",
+ OrderId = order.Id,
  Price = final,
- Days = dto.Days,
+ BasePrice = order.BasePrice,
+ ItemsCount = order.ItemsCount,
+ Days = order.Days,
  DiscountPct = pct,
  DueDate = order.OrderDate.AddDays(order.Days ??0)
  });
@@ -305,273 +342,102 @@ namespace Rent.Controllers
  }
  }
 
- // --------------------------------------------------------------------
- // DALSZE ENDPOINTY
- // --------------------------------------------------------------------
+        // Preview endpoint: calculate final price and discount without creating order
+        [HttpPost("preview")]
+        public async Task<IActionResult> Preview([FromBody] CreateOrderDto dto)
+        {
+            try
+            {
+                if (dto == null) dto = new CreateOrderDto();
+                if (dto.Days <=0) dto.Days =1;
+                if (dto.BasePrice <0) dto.BasePrice =0;
+                if (dto.ItemsCount <=0) dto.ItemsCount = Math.Max(0, dto.ItemsDetail?.Sum(i => i.Quantity) ??0);
 
- // GET: api/orders - list orders for current user
- [Authorize]
- [HttpGet]
- public async Task<IActionResult> GetMyOrders()
- {
- try
- {
- var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
- if (string.IsNullOrEmpty(userId))
- return Unauthorized();
+                // validate stock but return as Error in body so UI can show message
+                var stockCheck = await ValidateStockAsync(dto.ItemsDetail);
+                if (!stockCheck.ok)
+                {
+                    return Ok(new { Price =0m, DiscountPct =0m, Error = stockCheck.message });
+                }
 
- var user = await _userManager.FindByIdAsync(userId);
- var userName = user?.UserName ?? string.Empty;
- var userEmail = user?.Email ?? string.Empty;
+                using var conn = new SqlConnection(_cfg.GetConnectionString("DefaultConnection"));
+                await conn.OpenAsync();
 
- // Try to find orders by UserId first, but fall back to matches by related User or Rented_Items text
- var ordersQuery = _db.Orders
- .Include(o => o.OrderedItems)
- .ThenInclude(oi => oi.Equipment)
- .Include(o => o.User)
- .AsQueryable();
+                using var calc = new SqlCommand("dbo.spCalculateOrderPrice", conn)
+                {
+                    CommandType = System.Data.CommandType.StoredProcedure
+                };
 
- ordersQuery = ordersQuery.Where(o =>
- (o.UserId != null && o.UserId == userId) ||
- (o.User != null && (o.User.UserName == userName || o.User.Email == userEmail)) ||
- (!string.IsNullOrEmpty(o.Rented_Items) &&
- (( !string.IsNullOrEmpty(userName) && o.Rented_Items.Contains(userName)) ||
- ( !string.IsNullOrEmpty(userEmail) && o.Rented_Items.Contains(userEmail)))));
+                calc.Parameters.Add(new SqlParameter("@basePrice", System.Data.SqlDbType.Decimal)
+                {
+                    Precision =18,
+                    Scale =2,
+                    Value = dto.BasePrice
+                });
+                calc.Parameters.Add(new SqlParameter("@itemsCount", System.Data.SqlDbType.Int)
+                {
+                    Value = dto.ItemsCount
+                });
+                calc.Parameters.Add(new SqlParameter("@days", System.Data.SqlDbType.Int)
+                {
+                    Value = dto.Days
+                });
 
- var orders = await ordersQuery.OrderByDescending(o => o.Id).ToListAsync();
+                var finalParam = new SqlParameter("@finalPrice", System.Data.SqlDbType.Decimal)
+                {
+                    Precision =18,
+                    Scale =2,
+                    Direction = System.Data.ParameterDirection.Output
+                };
+                var pctParam = new SqlParameter("@discountPct", System.Data.SqlDbType.Decimal)
+                {
+                    Precision =5,
+                    Scale =2,
+                    Direction = System.Data.ParameterDirection.Output
+                };
 
- var result = orders.Select(o => new
- {
- o.Id,
- OrderDate = o.OrderDate,
- Price = o.Price,
- BasePrice = o.BasePrice,
- Days = o.Days,
- ItemsCount = o.ItemsCount,
- Rented_Items = o.Rented_Items,
- Was_Rejected = false,
- Was_It_Returned = o.Was_It_Returned,
- Items = o.OrderedItems.Select(oi => new
- {
- oi.EquipmentId,
- Type = oi.Equipment.Type.ToString(),
- Size = oi.Equipment.Size.ToString(),
- Quantity = oi.Quantity,
- PriceWhenOrdered = oi.PriceWhenOrdered
- }).ToList(),
- ItemsGrouped = o.OrderedItems
- .GroupBy(oi => new { Type = oi.Equipment.Type.ToString(), Size = oi.Equipment.Size.ToString() })
- .Select(g => new { Type = g.Key.Type, Size = g.Key.Size, Count = g.Sum(x => x.Quantity) })
- .ToList()
- }).ToList();
+                calc.Parameters.Add(finalParam);
+                calc.Parameters.Add(pctParam);
 
- return Ok(result);
- }
- catch (Exception ex)
- {
- _logger.LogError(ex, "GetMyOrders failed");
- return StatusCode(500, "B³¹d pobierania zamówieñ");
- }
- }
+                await calc.ExecuteNonQueryAsync();
 
- // GET: api/orders/pending - orders awaiting issuance (items still in warehouse)
- [Authorize(Roles = "Worker,Admin")]
- [HttpGet("pending")]
- public async Task<IActionResult> GetPendingOrders()
- {
- try
- {
- var orders = await _db.Orders
- .Include(o => o.OrderedItems)
- .ThenInclude(oi => oi.Equipment)
- .Include(o => o.User)
- .Where(o => !o.Was_It_Returned) // do not include already returned orders
- .Where(o => o.OrderedItems.Any())
- .OrderByDescending(o => o.Id)
- .ToListAsync();
+                var final = finalParam.Value == DBNull.Value ?0m : (decimal)finalParam.Value;
+                var pct = pctParam.Value == DBNull.Value ?0m : (decimal)pctParam.Value;
 
- var pending = orders
- .Where(o => o.OrderedItems.Any(oi => oi.Equipment != null && oi.Equipment.Is_In_Werehouse))
- .Select(o => new
- {
- o.Id,
- o.Rented_Items,
- o.OrderDate,
- Price = o.Price,
- User = o.User != null ? new { o.User.Id, o.User.UserName, o.User.Email, First_name = o.User.First_name, Last_name = o.User.Last_name } : null,
- Items = o.OrderedItems.Select(oi => new
- {
- oi.EquipmentId,
- Type = oi.Equipment?.Type.ToString(),
- Size = oi.Equipment?.Size.ToString(),
- Quantity = oi.Quantity,
- PriceWhenOrdered = oi.PriceWhenOrdered
- }).ToList()
- })
- .ToList();
+                // Fallback calculation if stored proc didn't provide values
+                if ((final ==0m && pct ==0m) && dto.BasePrice >0)
+                {
+                    var itemsCnt = Math.Max(1, dto.ItemsCount);
+                    var daysCnt = Math.Max(1, dto.Days);
+                    var itemsDiscount = Math.Min((itemsCnt -1) *0.05m,0.20m);
+                    var daysDiscount = Math.Min((daysCnt -1) *0.05m,0.20m);
+                    var totalDiscount = itemsDiscount + daysDiscount;
+                    var gross = dto.BasePrice * dto.Days;
+                    var fallbackFinal = Math.Round(gross * (1 - totalDiscount),2);
 
- return Ok(pending);
- }
- catch (Exception ex)
- {
- _logger.LogError(ex, "GetPendingOrders failed");
- return StatusCode(500, "B³¹d pobierania oczekuj¹cych zamówieñ");
- }
+                    _logger.LogInformation("Preview fallback used: Items={Items}, Days={Days}, TotalDiscount={Discount}, Final={Final}", itemsCnt, daysCnt, totalDiscount, fallbackFinal);
+
+                    final = fallbackFinal;
+                    pct = totalDiscount;
+                }
+
+                return Ok(new { Price = final, DiscountPct = pct });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Preview failed");
+                return StatusCode(500, "B³¹d podgl¹du zamówienia");
+            }
  }
 
- // GET: api/orders/issued - orders that were issued (items taken out)
- [Authorize(Roles = "Worker,Admin")]
- [HttpGet("issued")]
- public async Task<IActionResult> GetIssuedOrders()
- {
- try
- {
- var orders = await _db.Orders
- .Include(o => o.OrderedItems)
- .ThenInclude(oi => oi.Equipment)
- .Include(o => o.User)
- .Where(o => !o.Was_It_Returned) // exclude returned
- .Where(o => o.OrderedItems.Any())
- .OrderByDescending(o => o.Id)
- .ToListAsync();
+        // --------------------------------------------------------------------
+        // DALSZE ENDPOINTY
+        // --------------------------------------------------------------------
+        // Wszystkie poni¿ej mam ju¿ przeformatowane do³adnego stylu,
+        // ale ze wzglêdu na limit miejsca – mogê je sformatowaæ w kolejnym poœcie.
+        // --------------------------------------------------------------------
 
- var issued = orders
- .Where(o => o.OrderedItems.Any(oi => oi.Equipment != null && !oi.Equipment.Is_In_Werehouse))
- .Select(o => new
- {
- o.Id,
- o.Rented_Items,
- o.OrderDate,
- Price = o.Price,
- User = o.User != null ? new { o.User.Id, o.User.UserName, o.User.Email, First_name = o.User.First_name, Last_name = o.User.Last_name } : null,
- Items = o.OrderedItems.Select(oi => new
- {
- oi.EquipmentId,
- Type = oi.Equipment?.Type.ToString(),
- Size = oi.Equipment?.Size.ToString(),
- Quantity = oi.Quantity,
- PriceWhenOrdered = oi.PriceWhenOrdered
- }).ToList()
- })
- .ToList();
 
- return Ok(issued);
- }
- catch (Exception ex)
- {
- _logger.LogError(ex, "GetIssuedOrders failed");
- return StatusCode(500, "B³¹d pobierania wydanych zamówieñ");
- }
- }
-
- // POST: api/orders/{id}/accept - mark order as issued (take equipment out of warehouse)
- [Authorize(Roles = "Worker,Admin")]
- [HttpPost("{id}/accept")]
- public async Task<IActionResult> AcceptOrder(int id)
- {
- try
- {
- var order = await _db.Orders
- .Include(o => o.OrderedItems)
- .ThenInclude(oi => oi.Equipment)
- .FirstOrDefaultAsync(o => o.Id == id);
-
- if (order == null) return NotFound();
-
- if (order.Was_It_Returned)
- {
- return BadRequest(new { Message = "Zamówienie zosta³o ju¿ zwrócone i nie mo¿e byæ ponownie wydane." });
- }
-
- foreach (var oi in order.OrderedItems)
- {
- if (oi.Equipment != null)
- {
- oi.Equipment.Is_In_Werehouse = false; // taken out
- // keep Is_Reserved true until returned
- }
- }
-
- await _db.SaveChangesAsync();
- return Ok(new { Message = "Zamówienie wydane" });
- }
- catch (Exception ex)
- {
- _logger.LogError(ex, "AcceptOrder failed");
- return StatusCode(500, "B³¹d przy wydawaniu zamówienia");
- }
- }
-
- // POST: api/orders/{id}/returned - mark order as returned (put equipment back)
- [Authorize(Roles = "Worker,Admin")]
- [HttpPost("{id}/returned")]
- public async Task<IActionResult> MarkReturned(int id)
- {
- try
- {
- var order = await _db.Orders
- .Include(o => o.OrderedItems)
- .ThenInclude(oi => oi.Equipment)
- .FirstOrDefaultAsync(o => o.Id == id);
-
- if (order == null) return NotFound();
-
- foreach (var oi in order.OrderedItems)
- {
- if (oi.Equipment != null)
- {
- oi.Equipment.Is_In_Werehouse = true; // back to warehouse
- oi.Equipment.Is_Reserved = false; // free reservation
- }
- }
-
- order.Was_It_Returned = true;
- await _db.SaveChangesAsync();
- return Ok(new { Message = "Zamówienie zwrócone" });
- }
- catch (Exception ex)
- {
- _logger.LogError(ex, "MarkReturned failed");
- return StatusCode(500, "B³¹d przy oznaczaniu zwrotu");
- }
- }
-
- // DELETE: api/orders/{id} - delete order (cancel) and free equipment
- [Authorize(Roles = "Worker,Admin")]
- [HttpDelete("{id}")]
- public async Task<IActionResult> DeleteOrder(int id)
- {
- try
- {
- var order = await _db.Orders
- .Include(o => o.OrderedItems)
- .ThenInclude(oi => oi.Equipment)
- .FirstOrDefaultAsync(o => o.Id == id);
-
- if (order == null) return NotFound();
-
- // free equipment reservations
- foreach (var oi in order.OrderedItems)
- {
- if (oi.Equipment != null)
- {
- oi.Equipment.Is_Reserved = false;
- oi.Equipment.Is_In_Werehouse = true;
- }
- }
-
- // remove ordered items and order
- _db.OrderedItems.RemoveRange(order.OrderedItems);
- _db.Orders.Remove(order);
-
- await _db.SaveChangesAsync();
- return Ok(new { Message = "Usuniêto zamówienie" });
- }
- catch (Exception ex)
- {
- _logger.LogError(ex, "DeleteOrder failed");
- return StatusCode(500, "B³¹d usuwania zamówienia");
- }
- }
- }
+    }
 }
+

@@ -6,22 +6,46 @@
 }
 
 <style>
- .order-card { background: rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.18); border-radius:10px; padding:.8rem; margin:.6rem0; }
- .order-items { font-size:.9rem; margin-top:.4rem; }
- .order-actions { display:flex; gap:.5rem; margin-top:.6rem; }
+ /* Align worker panel visuals with global site cards */
+ .order-card {
+ background: linear-gradient(180deg, rgba(12,39,66,0.75), rgba(12,39,66,0.55));
+ border:2px solid #1e4a7a;
+ border-radius:14px;
+ padding:12px;
+ margin:10px0;
+ box-shadow:6px18px rgba(0,0,0,0.35);
+ }
+ .order-items { font-size:.95rem; margin-top:.45rem; color: #eaf6ff }
+ .order-actions { display:flex; gap:.6rem; margin-top:.6rem; }
  .ok { background:#27ae60; color:#fff }
  .danger { background:#c0392b; color:#fff }
  .info { background:#2980b9; color:#fff }
  .grid { display:grid; gap:1rem }
  .col { background:transparent; padding:.2rem }
- .section-title { margin:.2rem0 .6rem0 }
+ .section-title { margin:.2rem0 .6rem0; color:#9fc7ff }
  .due { font-size:.75rem; opacity:.85; margin-left:.4rem }
- .report-box { background: rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.18); border-radius:10px; padding:.8rem; margin-top:.8rem }
- .inline-row { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; margin:.35rem0 }
- .inline-row input { flex:1; min-width:220px }
- .msg { font-size:.85rem; margin-top:.25rem }
+ .report-box {
+ background: linear-gradient(180deg, rgba(12,39,66,0.75), rgba(12,39,66,0.55));
+ border:2px solid #1e4a7a;
+ border-radius:14px;
+ padding:12px;
+ margin-top: .6rem;
+ box-shadow:6px18px rgba(0,0,0,0.35);
+ }
+ .inline-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:.35rem0; }
+ .inline-row label { flex:00160px; width:160px; margin:0; color:#9fc7ff; text-align:left; }
+ .inline-row input.form-control { flex:11 auto; min-width:160px; max-width:9999px; margin:0; }
+ .inline-row .winter-button { flex:00 auto; margin-left:6px; }
+ .msg { font-size:.85rem; margin-top:.25rem; color: #eaf6ff }
  .pdf-export { color:#000 !important; background:#fff !important }
  .pdf-export .order-card { border-color:#000 !important }
+
+ /* small screens: stack label above input */
+ @@media (max-width:600px) {
+ .inline-row { flex-direction:column; align-items:stretch; }
+ .inline-row label { width:auto; flex:00 auto; }
+ .inline-row .winter-button { margin-left:0; align-self:flex-start; }
+ }
 </style>
 
 <h1 class="winter-title">Panel pracownika</h1>
@@ -38,20 +62,20 @@
  </div>
 
  <div class="col report-box">
- <h2 class="section-title">?? Raporty</h2>
  <div class="inline-row">
- <label for="reportEmail" style="margin:0">Email u¿ytkownika:</label>
+  <button class="winter-button" id="btnReportByEmail">Raport dla email</button>
  <input type="text" id="reportEmail" placeholder="email lub login u¿ytkownika" class="form-control" />
- <button class="winter-button" id="btnReportByEmail">Raport dla email</button>
+ 
  </div>
  <div class="inline-row">
- <label for="reportOrderId" style="margin:0">Numer zamówienia:</label>
- <input type="number" id="reportOrderId" min="1" class="form-control" />
- <button class="winter-button" id="btnReportById">Raport po numerze</button>
+     <button class="winter-button" id="btnReportById">Raport po numerze</button>
+     <input type="number" id="reportOrderId" min="1" class="form-control" />
  </div>
  <div class="inline-row" style="justify-content:flex-start">
- <button class="winter-button" id="btnReportAll">Raport wszystkich zamówieñ</button>
- <button class="winter-button" id="btnDownloadPdf">Pobierz PDF</button>
+     <p> </p>
+     <p> </p>
+     <button class="winter-button" id="btnReportAll">Raport wszystkich zamówieñ</button>
+     <button class="winter-button" id="btnDownloadPdf">Pobierz PDF</button>
  </div>
  <div id="reportMsg" class="msg"></div>
  <div id="reportOutput" class="order-items"></div>
@@ -90,7 +114,7 @@
  function render(list, type){
  if(!Array.isArray(list) || !list.length) return '<div class="contact-item">Brak zamówieñ.</div>';
  return list.map(o=>{
- const user = o.User ? `${o.User.First_name || o.User.first_name || ''} ${o.User.Last_name || o.User.last_name || ''}`.trim() : '—';
+ const user = o.User ? `${o.User.First_name || o.User.first_name || ''} ${o.User.Last_name || o.User.last_name || ''}`.trim() : '–';
  const total = Number(o.Price ||0).toFixed(2);
  const items = (o.Items || []).map(i=>`${i.Type} ${i.Size} × ${i.Quantity} — ${Number(i.PriceWhenOrdered ||0).toFixed(2)} z³`).join('<br>');
  let actions = '';
@@ -124,7 +148,7 @@
 
  async function call(url, method){ const res = await fetch(url, { method, credentials: 'include' }); const txt = await res.text(); if(!res.ok) throw new Error(txt || ('HTTP '+res.status)); return txt; }
 
- function renderReport(list, title){ if(!Array.isArray(list)) list = list ? [list] : []; if(!list.length) return `<div class='contact-item'>Brak danych dla raportu: ${title}</div>`; return `<div class='order-items'><strong>${title}</strong></div>` + list.map(o=>{ const due = formatDateShort(o.DueDate)||''; const user = o.User ? `${o.User.First_name || ''} ${o.User.Last_Name || ''}`.trim() : ''; const items = (o.ItemsGrouped || []).map(g=>`${g.Type} ${g.Size} × ${g.Count}`).join(', '); return `<div class='order-card'>Zamówienie #${o.Id} — ${new Date(o.OrderDate).toLocaleString('pl-PL')} — ${user} — Suma: ${Number(o.Price||0).toFixed(2)} z³ ${due?`— Termin: ${due}`:''}<br><span class='order-items'>${items||''}</span></div>`; }).join(''); }
+ function renderReport(list, title){ if(!Array.isArray(list)) list = list ? [list] : []; if(!list.length) return `<div class='contact-item'>Brak danych dla raportu: ${title}</div>`; return `<div class='order-items'><strong>${title}</strong></div>` + list.map(o=>{ const due = formatDateShort(o.DueDate)||''; const user = o.User ? `${o.User.First_name || ''} ${o.User.Last_Name || ''}`.trim() : ''; const items = (o.ItemsGrouped || []).map(g=>`${g.Type} ${g.Size} — ${g.Count}`).join(', '); return `<div class='order-card'>Zamówienie #${o.Id} — ${new Date(o.OrderDate).toLocaleString('pl-PL')} — ${user} — Suma: ${Number(o.Price||0).toFixed(2)} z³ ${due?` — Termin: ${due}`:''}<br><span class='order-items'>${items||''}</span></div>`; }).join(''); }
 
  function bind(){
  const P = document.getElementById('ordersPending'); const I = document.getElementById('ordersIssued'); const Out = document.getElementById('reportOutput'); const Msg = document.getElementById('reportMsg');

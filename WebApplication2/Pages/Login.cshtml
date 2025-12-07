@@ -3,10 +3,13 @@
  ViewData["Title"] = "Logowanie";
 }
 
+<style>
+/* Keep outer content-section background intact; only remove inner form "card" */
+.form-box { background: transparent !important; box-shadow: none !important; padding:0 !important; margin-top:12px !important; }
+</style>
+
 <h1 class="winter-title">🔐 Logowanie</h1>
-<div class="content-section">
- <div class="frost-effect">
- <form id="loginForm" class="form-box" novalidate>
+<form id="loginForm" class="form-box" novalidate>
  <div class="mb-3">
  <label>
  Email
@@ -24,9 +27,7 @@
  <div class="alt-link" data-hide-when-auth="true" style="margin-top:.6rem;">
  Nie masz konta? <a href="/Register.html">Zarejestruj się</a>
  </div>
- </form>
- </div>
-</div>
+</form>
 
 @section Scripts {
 <script>

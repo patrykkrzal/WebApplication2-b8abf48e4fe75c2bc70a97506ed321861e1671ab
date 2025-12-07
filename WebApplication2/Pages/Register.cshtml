@@ -3,10 +3,13 @@
  ViewData["Title"] = "Rejestracja użytkownika";
 }
 
+<style>
+/* Keep outer content-section background intact; only remove inner form "card" */
+.form-box { background: transparent !important; box-shadow: none !important; padding:0 !important; margin-top:12px !important; }
+</style>
+
 <h1 class="winter-title">📝 Rejestracja użytkownika</h1>
-<div class="content-section">
- <div class="frost-effect">
- <form id="registerForm" class="form-box" novalidate>
+<form id="registerForm" class="form-box" novalidate>
  <div class="mb-3">
  <label>
  Login (UserName)
@@ -49,9 +52,7 @@
  <button type="submit" class="submit-btn">Zarejestruj</button>
  <div id="registerMsg" class="msg"></div>
  <div class="alt-link" style="margin-top:.5rem;">Masz już konto? <a href="/Login.html">Zaloguj się</a></div>
- </form>
- </div>
-</div>
+</form>
 
 @section Scripts {
 <script>
