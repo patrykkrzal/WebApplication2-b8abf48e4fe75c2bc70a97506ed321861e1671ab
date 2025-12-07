@@ -46,6 +46,19 @@ namespace Rent.Data
             modelBuilder.Entity<Order>().Property(o => o.Price).HasPrecision(18, 2);
             modelBuilder.Entity<Order>().Property(o => o.BasePrice).HasPrecision(18, 2);
             modelBuilder.Entity<OrderedItem>().Property(oi => oi.PriceWhenOrdered).HasPrecision(18, 2);
+
+            // Map SQL scalar function dbo.fnOrderDiscount so it can be used in LINQ and translated to SQL
+            modelBuilder
+                .HasDbFunction(typeof(DataContext).GetMethod(nameof(FnOrderDiscount), new[] { typeof(int), typeof(int) }))
+                .HasName("fnOrderDiscount")
+                .HasSchema("dbo");
+        }
+
+        // CLR wrapper for the SQL function. EF will translate calls to this method into SQL calls to dbo.fnOrderDiscount.
+        public static decimal FnOrderDiscount(int itemsCount, int days)
+        {
+            // This method is for use in LINQ queries and should not be executed client-side.
+            throw new System.NotSupportedException("This method is only intended for use in LINQ-to-Entities queries and will be translated to SQL.");
         }
     }
 }

@@ -69,9 +69,20 @@ CREATE OR ALTER FUNCTION dbo.fnOrderDiscount(@itemsCount int, @days int)
 RETURNS decimal(5,2)
 AS
 BEGIN
- DECLARE @base decimal(5,2) = CAST((ISNULL(@itemsCount,0) + ISNULL(@days,0)) *0.05 AS decimal(5,2));
- DECLARE @total decimal(5,2) = @base -0.10;
- IF @total <0.00 SET @total =0.00;
+ -- For items: each item gives5%, then subtract5%, cap at20%
+ DECLARE @itemsRaw decimal(5,2) = CAST(ISNULL(@itemsCount,0) *0.05 AS decimal(5,2));
+ DECLARE @itemsPct decimal(5,2) = @itemsRaw -0.05;
+ IF @itemsPct <0.00 SET @itemsPct =0.00;
+ IF @itemsPct >0.20 SET @itemsPct =0.20;
+
+ -- For days: each day gives5%, then subtract5%, cap at20%
+ DECLARE @daysRaw decimal(5,2) = CAST(ISNULL(@days,0) *0.05 AS decimal(5,2));
+ DECLARE @daysPct decimal(5,2) = @daysRaw -0.05;
+ IF @daysPct <0.00 SET @daysPct =0.00;
+ IF @daysPct >0.20 SET @daysPct =0.20;
+
+ DECLARE @total decimal(5,2) = @itemsPct + @daysPct;
+ -- overall cap at40% just in case
  IF @total >0.40 SET @total =0.40;
  RETURN @total;
 END

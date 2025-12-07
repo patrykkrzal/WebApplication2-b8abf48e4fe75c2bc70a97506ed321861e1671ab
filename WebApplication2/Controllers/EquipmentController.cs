@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore; // for Database facade
 using Microsoft.AspNetCore.Authorization;
 using Rent.Enums;
 using Rent.Services;
+using Microsoft.Data.SqlClient;
 
 namespace Rent.Controllers
 {
@@ -109,8 +110,35 @@ namespace Rent.Controllers
                 var price = dto.Price ?? priceResolver.ResolvePrice(dto.Type, dto.Size);
                 var qty = dto.Quantity ??1;
 
-                // create items directly to avoid dependency on stored proc
+                // Try to use stored procedure when connected to SQL Server
                 var created = new List<Equipment>();
+                if (dbContext.Database.IsSqlServer())
+                {
+                    var conn = (SqlConnection)dbContext.Database.GetDbConnection();
+                    if (conn.State != System.Data.ConnectionState.Open) conn.Open();
+
+                    for (int i =0; i < qty; i++)
+                    {
+                        using var cmd = new SqlCommand("dbo.spAddEquipment", conn) { CommandType = System.Data.CommandType.StoredProcedure };
+                        cmd.Parameters.Add(new SqlParameter("@Type", System.Data.SqlDbType.Int) { Value = (int)dto.Type });
+                        cmd.Parameters.Add(new SqlParameter("@Size", System.Data.SqlDbType.Int) { Value = (int)dto.Size });
+                        cmd.Parameters.Add(new SqlParameter("@Price", System.Data.SqlDbType.Decimal) { Precision =18, Scale =2, Value = price });
+
+                        var obj = cmd.ExecuteScalar();
+                        int newId =0;
+                        if (obj != null && obj != DBNull.Value)
+                        {
+                            if (int.TryParse(obj.ToString(), out var parsed)) newId = parsed;
+                        }
+
+                        // If we got id back, we can materialize a lightweight object for response
+                        created.Add(new Equipment { Id = newId, Type = dto.Type, Size = dto.Size, Is_In_Werehouse = true, Is_Reserved = false, Price = price });
+                    }
+
+                    return Ok(new { Message = "Equipment added (via SP)", Type = dto.Type.ToString(), Size = dto.Size.ToString(), Price = price, Quantity = qty, CreatedIds = created.Select(c => c.Id).ToArray() });
+                }
+
+                // Fallback: create items directly to avoid dependency on stored proc
                 for (int i =0; i < qty; i++)
                 {
                     var item = new Equipment
