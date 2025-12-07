@@ -7,6 +7,8 @@ using Rent.Data;
 using Rent.Models;
 using System.Security.Claims;
 using Rent.Enums;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Rent.Controllers
 {
@@ -773,6 +775,107 @@ namespace Rent.Controllers
 
  await _db.SaveChangesAsync();
  return Ok(new { Message = "Order cancelled" });
+ }
+
+ [Authorize(Roles = "Admin,Worker")]
+ [HttpGet("by-email")]
+ public async Task<IActionResult> ReportByEmail([FromQuery] string email)
+ {
+ if (string.IsNullOrWhiteSpace(email)) return BadRequest("email required");
+ var q = email.Trim();
+ var orders = await _db.Orders
+ .Include(o => o.OrderedItems)
+ .ThenInclude(oi => oi.Equipment)
+ .Include(o => o.User)
+ .Where(o => (!string.IsNullOrEmpty(o.Rented_Items) && o.Rented_Items.Contains(q))
+ || (o.User != null && (o.User.Email == q || o.User.UserName == q)))
+ .OrderByDescending(o => o.Id)
+ .ToListAsync();
+
+ var result = orders.Select(o => new
+ {
+ o.Id,
+ o.Rented_Items,
+ o.OrderDate,
+ DueDate = o.DueDate,
+ o.Price,
+ o.BasePrice,
+ o.Days,
+ o.ItemsCount,
+ o.Was_It_Returned,
+ User = o.User != null ? new { o.User.Id, o.User.UserName, o.User.Email, FirstName = o.User.First_name, LastName = o.User.Last_name } : null,
+ ItemsGrouped = o.OrderedItems
+ .GroupBy(oi => new { Type = oi.Equipment.Type.ToString(), Size = oi.Equipment.Size.ToString() })
+ .Select(g => new { Type = g.Key.Type, Size = g.Key.Size, Count = g.Sum(x => x.Quantity) })
+ .ToList()
+ }).ToList();
+
+ return Ok(result);
+ }
+
+ [Authorize(Roles = "Admin,Worker")]
+ [HttpGet("report")]
+ public async Task<IActionResult> ReportById([FromQuery] int id)
+ {
+ if (id <=0) return BadRequest("id required");
+ var o = await _db.Orders
+ .Include(x => x.OrderedItems)
+ .ThenInclude(oi => oi.Equipment)
+ .Include(x => x.User)
+ .FirstOrDefaultAsync(x => x.Id == id);
+ if (o == null) return NotFound();
+
+ var obj = new
+ {
+ o.Id,
+ o.Rented_Items,
+ o.OrderDate,
+ DueDate = o.DueDate,
+ o.Price,
+ o.BasePrice,
+ o.Days,
+ o.ItemsCount,
+ o.Was_It_Returned,
+ User = o.User != null ? new { o.User.Id, o.User.UserName, o.User.Email, FirstName = o.User.First_name, LastName = o.User.Last_name } : null,
+ ItemsGrouped = o.OrderedItems
+ .GroupBy(oi => new { Type = oi.Equipment.Type.ToString(), Size = oi.Equipment.Size.ToString() })
+ .Select(g => new { Type = g.Key.Type, Size = g.Key.Size, Count = g.Sum(x => x.Quantity) })
+ .ToList()
+ };
+
+ return Ok(obj);
+ }
+
+ [Authorize(Roles = "Admin,Worker")]
+ [HttpGet("all")]
+ public async Task<IActionResult> ReportAll()
+ {
+ var orders = await _db.Orders
+ .Include(o => o.OrderedItems)
+ .ThenInclude(oi => oi.Equipment)
+ .Include(o => o.User)
+ .OrderByDescending(o => o.Id)
+ .ToListAsync();
+
+ var result = orders.Select(o => new
+ {
+ o.Id,
+ o.Rented_Items,
+ o.OrderDate,
+ DueDate = o.DueDate,
+ o.Price,
+ o.BasePrice,
+ o.Days,
+ o.ItemsCount,
+ o.Was_It_Returned,
+ User = o.User != null ? new { o.User.Id, o.User.UserName, o.User.Email, FirstName = o.User.First_name, LastName = o.User.Last_name } : null,
+ ItemsGrouped = o.OrderedItems
+ .GroupBy(oi => new { Type = oi.Equipment.Type.ToString(), Size = oi.Equipment.Size.ToString() })
+ .Select(g => new { Type = g.Key.Type, Size = g.Key.Size, Count = g.Sum(x => x.Quantity) })
+ .ToList()
+ }).ToList();
+
+ return Ok(result);
  }
  }
  }

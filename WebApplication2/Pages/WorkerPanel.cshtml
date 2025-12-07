@@ -177,12 +177,19 @@
  fetch(`${apiBase}/api/orders/pending`, { credentials: 'include' }),
  fetch(`${apiBase}/api/orders/issued`, { credentials: 'include' })
  ]);
- const pending = pRes.ok ? await pRes.json() : [];
- const issued = iRes.ok ? await iRes.json() : [];
- document.getElementById('ordersPending').innerHTML = render(pending,'pending');
- document.getElementById('ordersIssued').innerHTML = render(issued,'issued');
+ const reportMsg = document.getElementById('reportMsg'); reportMsg.textContent = '';
+ if (!pRes.ok) {
+ const txt = await pRes.text(); reportMsg.textContent = `B³¹d ³adowania zamówieñ oczekuj¹cych: ${pRes.status} ${txt || pRes.statusText}`; console.error('pending error', pRes.status, txt);
+ } else {
+ const pending = await pRes.json(); document.getElementById('ordersPending').innerHTML = render(pending,'pending');
+ }
+ if (!iRes.ok) {
+ const txt = await iRes.text(); reportMsg.textContent += `\nB³¹d ³adowania zamówieñ wydanych: ${iRes.status} ${txt || iRes.statusText}`; console.error('issued error', iRes.status, txt);
+ } else {
+ const issued = await iRes.json(); document.getElementById('ordersIssued').innerHTML = render(issued,'issued');
+ }
  bind();
- }catch(err){ console.error(err); }
+ }catch(err){ console.error(err); document.getElementById('reportMsg').textContent = 'B³¹d ³adowania zamówieñ: ' + (err.message || err); }
  }
 
  async function call(url, method){ const res = await fetch(url, { method, credentials: 'include' }); const txt = await res.text(); if(!res.ok) throw new Error(txt || ('HTTP '+res.status)); return txt; }
@@ -197,31 +204,38 @@
 
  function bind(){
  const P = document.getElementById('ordersPending'); const I = document.getElementById('ordersIssued'); const Out = document.getElementById('reportOutput'); const Msg = document.getElementById('reportMsg');
- if(P) P.querySelectorAll('[data-accept]').forEach(b=>{ b.onclick = async ()=>{ b.disabled = true; const id = b.getAttribute('data-accept'); try{ await call(`${apiBase}/api/orders/${id}/accept`, 'POST'); } finally{ b.disabled = false; load(); } } });
- if(P) P.querySelectorAll('[data-delete]').forEach(b=>{ b.onclick = async ()=>{ b.disabled = true; const id = b.getAttribute('data-delete'); try{ await call(`${apiBase}/api/orders/${id}`, 'DELETE'); } finally{ b.disabled = false; load(); } } });
- if(I) I.querySelectorAll('[data-return]').forEach(b=>{ b.onclick = async ()=>{ b.disabled = true; const id = b.getAttribute('data-return'); try{ await call(`${apiBase}/api/orders/${id}/returned`, 'POST'); } finally{ b.disabled = false; load(); } } });
+ if(P) P.querySelectorAll('[data-accept]').forEach(b=>{ b.onclick = async ()=>{ b.disabled = true; const id = b.getAttribute('data-accept'); try{ await call(`${apiBase}/api/orders/${id}/accept`, 'POST'); } catch(e){ Msg.textContent = 'Akceptacja nie powiod³a siê: ' + (e.message || e); console.error(e); } finally{ b.disabled = false; load(); } } });
+ if(P) P.querySelectorAll('[data-delete]').forEach(b=>{ b.onclick = async ()=>{ b.disabled = true; const id = b.getAttribute('data-delete'); try{ await call(`${apiBase}/api/orders/${id}`, 'DELETE'); } catch(e){ Msg.textContent = 'Usuwanie nie powiod³o siê: ' + (e.message || e); console.error(e); } finally{ b.disabled = false; load(); } } });
+ if(I) I.querySelectorAll('[data-return]').forEach(b=>{ b.onclick = async ()=>{ b.disabled = true; const id = b.getAttribute('data-return'); try{ await call(`${apiBase}/api/orders/${id}/returned`, 'POST'); } catch(e){ Msg.textContent = 'Zwrot nie powiód³ siê: ' + (e.message || e); console.error(e); } finally{ b.disabled = false; load(); } } });
 
  document.getElementById('btnReportByEmail').onclick = async ()=>{
  Msg.textContent = ''; Out.innerHTML = '';
  const email = document.getElementById('reportEmail').value.trim(); if(!email){ Msg.textContent = 'Podaj email lub login u¿ytkownika.'; return; }
- const res = await fetch(`${apiBase}/api/orders/by-email?email=${encodeURIComponent(email)}`, { credentials: 'include' }); const data = res.ok ? await res.json() : [];
- Out.innerHTML = renderReport(data, 'Raport dla: ' + email);
+ try{
+ const res = await fetch(`${apiBase}/api/orders/by-email?email=${encodeURIComponent(email)}`, { credentials: 'include' });
+ if(!res.ok){ const txt = await res.text(); Msg.textContent = txt || ('B³¹d HTTP ' + res.status); return; }
+ const data = await res.json(); Out.innerHTML = renderReport(data, 'Raport dla: ' + email);
+ } catch(err){ Msg.textContent = 'B³¹d: ' + (err.message || err); console.error(err); }
  };
 
  document.getElementById('btnReportById').onclick = async ()=>{
  Msg.textContent = ''; Out.innerHTML = '';
  const id = parseInt(document.getElementById('reportOrderId').value,10); if(!id){ Msg.textContent = 'Podaj poprawny numer zamówienia.'; return; }
+ try{
  const url = `${apiBase}/api/orders/report?id=${encodeURIComponent(id)}`;
- const res = await fetch(url, { credentials: 'include' }); const txt = await res.text(); let data = null; try{ data = JSON.parse(txt);}catch{}
- if(!res.ok){ Msg.textContent = (data && data.Message) ? data.Message : (txt || ('B³¹d HTTP ' + res.status)); return; }
+ const res = await fetch(url, { credentials: 'include' });
+ const txt = await res.text(); if(!res.ok){ Msg.textContent = txt || ('B³¹d HTTP ' + res.status); return; }
+ let data = null; try{ data = JSON.parse(txt);}catch{}
  Out.innerHTML = renderReport(data, 'Raport zamówienie #' + id);
+ } catch(err){ Msg.textContent = 'B³¹d: ' + (err.message || err); console.error(err); }
  };
 
- document.getElementById('btnReportAll').onclick = async ()=>{ Msg.textContent = ''; Out.innerHTML = ''; const res = await fetch(`${apiBase}/api/orders/all`, { credentials: 'include' }); const data = res.ok ? await res.json() : []; Out.innerHTML = renderReport(data, 'Raport wszystkich zamówieñ'); };
+ document.getElementById('btnReportAll').onclick = async ()=>{ Msg.textContent = ''; Out.innerHTML = ''; try{
+ const res = await fetch(`${apiBase}/api/orders/all`, { credentials: 'include' }); if(!res.ok){ const txt = await res.text(); document.getElementById('reportMsg').textContent = txt || ('B³¹d HTTP ' + res.status); return; } const data = await res.json(); Out.innerHTML = renderReport(data, 'Raport wszystkich zamówieñ'); } catch(err){ document.getElementById('reportMsg').textContent = 'B³¹d: ' + (err.message || err); console.error(err); } };
 
  document.getElementById('btnDownloadPdf').onclick = async ()=>{
  if(!document.getElementById('reportOutput').innerHTML.trim()){ document.getElementById('reportMsg').textContent = 'Najpierw wygeneruj raport.'; return; }
- try{ document.getElementById('reportOutput').classList.add('pdf-export'); const canvas = await html2canvas(document.getElementById('reportOutput'), { scale:2, backgroundColor:'#ffffff' }); document.getElementById('reportOutput').classList.remove('pdf-export'); const imgData = canvas.toDataURL('image/png'); const { jsPDF } = window.jspdf; const pdf = new jsPDF({ unit:'pt', format:'a4' }); const pageWidth = pdf.internal.pageSize.getWidth(); const pageHeight = pdf.internal.pageSize.getHeight(); const imgWidth = pageWidth -40; const imgHeight = canvas.height * imgWidth / canvas.width; if (imgHeight <= pageHeight -40) { pdf.addImage(imgData, 'PNG',20,20, imgWidth, imgHeight); } else { let remaining = imgHeight; let yCanvas =0; const ratio = imgWidth / canvas.width; const slicePx = (pageHeight -40) / ratio; while(remaining >0){ const pageCanvas = document.createElement('canvas'); pageCanvas.width = canvas.width; pageCanvas.height = Math.min(slicePx, canvas.height - yCanvas); const ctx = pageCanvas.getContext('2d'); ctx.drawImage(canvas,0, yCanvas, pageCanvas.width, pageCanvas.height,0,0, pageCanvas.width, pageCanvas.height); const pageImg = pageCanvas.toDataURL('image/png'); pdf.addImage(pageImg, 'PNG',20,20, imgWidth, pageCanvas.height * ratio); remaining -= pageCanvas.height * ratio; yCanvas += pageCanvas.height; if(remaining >0) pdf.addPage(); } } pdf.save('raport.pdf'); } catch(err){ document.getElementById('reportMsg').textContent = 'Nie uda³o siê wygenerowaæ PDF: ' + (err.message || err); } };
+ try{ document.getElementById('reportOutput').classList.add('pdf-export'); const canvas = await html2canvas(document.getElementById('reportOutput'), { scale:2, backgroundColor:'#ffffff' }); document.getElementById('reportOutput').classList.remove('pdf-export'); const imgData = canvas.toDataURL('image/png'); const { jsPDF } = window.jspdf; const pdf = new jsPDF({ unit:'pt', format:'a4' }); const pageWidth = pdf.internal.pageSize.getWidth(); const pageHeight = pdf.internal.pageSize.getHeight(); const imgWidth = pageWidth -40; const imgHeight = canvas.height * imgWidth / canvas.width; if (imgHeight <= pageHeight -40) { pdf.addImage(imgData, 'PNG',20,20, imgWidth, imgHeight); } else { let remaining = imgHeight; let yCanvas =0; const ratio = imgWidth / canvas.width; const slicePx = (pageHeight -40) / ratio; while(remaining >0){ const pageCanvas = document.createElement('canvas'); pageCanvas.width = canvas.width; pageCanvas.height = Math.min(slicePx, canvas.height - yCanvas); const ctx = pageCanvas.getContext('2d'); ctx.drawImage(canvas,0, yCanvas, pageCanvas.width, pageCanvas.height,0,0, pageCanvas.width, pageCanvas.height); const pageImg = pageCanvas.toDataURL('image/png'); pdf.addImage(pageImg, 'PNG',20,20, imgWidth, pageCanvas.height * ratio); remaining -= pageCanvas.height * ratio; yCanvas += pageCanvas.height; if(remaining >0) pdf.addPage(); } } pdf.save('raport.pdf'); } catch(err){ document.getElementById('reportMsg').textContent = 'Nie uda³o siê wygenerowaæ PDF: ' + (err.message || err); } }
  }
 
  // initial
