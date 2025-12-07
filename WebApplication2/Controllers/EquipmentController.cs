@@ -151,17 +151,17 @@ namespace Rent.Controllers
             try
             {
                 var qty = dto.Quantity ??1;
-                int deleted =0;
-                for (int i =0; i < qty; i++)
+                // Fetch up to 'qty' available items and remove them in one batch
+                var toDelete = dbContext.Equipment
+                    .Where(e => e.Type == dto.Type && e.Size == dto.Size && e.Is_In_Werehouse && !e.Is_Reserved)
+                    .Take(qty)
+                    .ToList();
+                int deleted = toDelete.Count;
+                if (deleted >0)
                 {
-                    var entity = dbContext.Equipment
-                        .Where(e => e.Type == dto.Type && e.Size == dto.Size && e.Is_In_Werehouse && !e.Is_Reserved)
-                        .FirstOrDefault();
-                    if (entity == null) break;
-                    dbContext.Equipment.Remove(entity);
-                    deleted++;
+                    dbContext.Equipment.RemoveRange(toDelete);
+                    dbContext.SaveChanges();
                 }
-                dbContext.SaveChanges();
                 var remaining = dbContext.Equipment.Count(e => e.Type == dto.Type && e.Size == dto.Size && e.Is_In_Werehouse && !e.Is_Reserved);
                 return Ok(new { Message = "Deleted equipment items", Type = dto.Type.ToString(), Size = dto.Size.ToString(), Deleted = deleted, Remaining = remaining });
             }

@@ -308,31 +308,34 @@
 details.user-panel {
  background: transparent;
  border-radius:12px;
- display: block;
+ display: inline-block;
  text-align: center;
 }
 
-details.user-panel summary.winter-button {
- display: inline-block;
- padding: .6rem1rem;
- border-radius:10px;
- background: rgba(12,39,66,0.55);
+/* Ensure the summary uses same layout as other winter buttons so it aligns vertically */
+details.user-panel > summary.winter-button {
+ display: inline-flex;
+ align-items: center;
+ justify-content: center;
+ padding:12px21px; /* match .winter-button */
+ border-radius:16px;
+ background: transparent !important;
  color: var(--btn-text);
- border:1px solid rgba(51,153,255,0.12);
+ border: none !important;
+ box-shadow: none !important;
  cursor: pointer;
- margin: 0 auto 12px;
+ margin:0; /* remove bottom margin that caused offset */
+ vertical-align: middle;
 }
 
-details.user-panel[open] summary.winter-button {
- box-shadow:06px18px rgba(51,153,255,0.06);
- transform: translateY(-2px);
+/* When the panel is open, do not translate/raise the button */
+details.user-panel[open] > summary.winter-button {
+ box-shadow: none;
+ transform: none;
 }
 
-/* Make option list appear coherent on supported browsers (limited) */
-.form-box .form-select option {
- color: var(--btn-text);
- background: linear-gradient(180deg, rgba(10,28,42,1), rgba(12,39,66,1));
-}
+/* keep menu positioning unchanged */
+/* no additional styles here to avoid overriding other rules */
 
 /* small screens */
 @media (max-width:700px) {
@@ -340,7 +343,6 @@ details.user-panel[open] summary.winter-button {
  .form-box .form-select, .form-box .form-control { min-height:36px; }
  .form-box .dual-actions { flex-direction: column; }
 }
-
 @media (max-width:900px) {
  .content-section .form-box { padding:10px; }
 }

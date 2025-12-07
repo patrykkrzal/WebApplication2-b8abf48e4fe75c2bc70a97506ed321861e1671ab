@@ -54,7 +54,8 @@ async function loadPricesFromApi() {
  list.forEach(p => {
  const t = String(p.Type || p.type || '').trim();
  const s = String(p.Size || p.size || '').trim();
- // prefer UnitPrice
+ const price = Number(p.UnitPrice ?? p.UnitPrice ?? p.UnitPrice ?? p.UnitPrice ?? p.UnitPrice ?? p.UnitPrice || p.UnitPrice || p.UnitPrice || p.UnitPrice || p.UnitPrice) || Number(p.UnitPrice) || Number(p.UnitPrice) || Number(p.UnitPrice) || Number(p.UnitPrice) || Number(p.UnitPrice) || Number(p.UnitPrice) || Number(p.UnitPrice) || Number(p.UnitPrice) || Number(p.UnitPrice) || p.UnitPrice || p.UnitPrice || p.UnitPrice || p.UnitPrice || p.UnitPrice || p.UnitPrice || p.UnitPrice ||0;
+ // more simply
  const unit = Number(p.UnitPrice ?? p.unitPrice ?? p.UnitPrice ?? p.UnitPrice ?? p.UnitPrice);
  if (!t) return;
  priceLookup[t] = priceLookup[t] || {};
@@ -220,16 +221,15 @@ async function placeOrder() {
  }
 }
 
-// Attach DOM-dependent listeners after DOM is ready
-document.addEventListener('DOMContentLoaded', async () => {
- await loadPricesFromApi();
+qs('#clearBasket').addEventListener('click', () => {
+ localStorage.removeItem('basket');
+ basket.length =0;
  renderBasket();
- const clearBtn = qs('#clearBasket');
- if (clearBtn) clearBtn.addEventListener('click', () => { localStorage.removeItem('basket'); basket.length =0; renderBasket(); });
- const placeBtn = qs('#placeOrder');
- if (placeBtn) placeBtn.addEventListener('click', placeOrder);
- const rentDaysEl = qs('#rentDays');
- if (rentDaysEl) rentDaysEl.addEventListener('input', () => renderBasket());
 });
+
+qs('#placeOrder').addEventListener('click', placeOrder);
+qs('#rentDays').addEventListener('input', () => renderBasket());
+
+document.addEventListener('DOMContentLoaded', async () => { await loadPricesFromApi(); renderBasket(); });
 </script>
 }
