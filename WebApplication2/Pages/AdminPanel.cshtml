@@ -113,32 +113,12 @@
  <div id="pricesMsg" class="msg"></div>
  </div>
 
- <!-- Panel logów -->
- <div id="logContainer" class="logs-box" style="position:fixed; bottom:0; right:0; width:350px; max-height:300px; overflow:auto; background:#111; color:#fff; font-size:0.85rem; padding:0.5rem; z-index:1000; border-radius:4px;">
- <div style="font-weight:bold; margin-bottom:0.5rem;">📜 Logi</div>
- </div>
  </div>
 </div>
 
 @section Scripts {
 <script>
 (async function () {
- // -------------------
- // Panel logów
- // -------------------
- function logMessage(level, message) {
- const container = document.getElementById('logContainer');
- if (!container) return;
- const div = document.createElement('div');
- div.className = 'logs-item ' + level.toLowerCase();
- div.innerHTML = `<span class="lvl">${level.toUpperCase()}:</span> ${message}`;
- if (level === 'error') div.style.color = '#ff6b6b';
- if (level === 'warn') div.style.color = '#ffd166';
- if (level === 'info') div.style.color = '#4dabff';
- container.appendChild(div);
- container.scrollTop = container.scrollHeight;
- }
-
  // -------------------
  // Formularz dodawania pracownika
  // -------------------
@@ -147,7 +127,6 @@
  const msg = document.getElementById('workerMsg');
  msg.className = 'msg';
  msg.textContent = 'Tworzenie pracownika...';
- logMessage('info', 'Rozpoczęto tworzenie pracownika');
 
  const formData = Object.fromEntries(new FormData(e.target));
  const payload = {
@@ -175,12 +154,10 @@
 
  msg.className = 'msg success';
  msg.textContent = '✅ Utworzono pracownika';
- logMessage('info', `Dodano pracownika: ${payload.Email}, WorkerId: ${data.WorkerId || 'brak'}`);
  e.target.reset();
  } catch (err) {
  msg.className = 'msg error';
  msg.textContent = '❌ Wystąpił błąd';
- logMessage('error', `Błąd przy dodawaniu pracownika: ${err.message}`);
  }
  });
 
@@ -197,7 +174,6 @@
  if (!email) {
  delMsg.className = 'msg error';
  delMsg.textContent = 'Podaj email';
- logMessage('warn', 'Nie podano emaila do usunięcia');
  return;
  }
 
@@ -211,12 +187,10 @@
 
  delMsg.className = 'msg success';
  delMsg.textContent = '🗑️ Usunięto: ' + (data.Email || email);
- logMessage('info', `Usunięto pracownika: ${data.Email || email}`);
  e.target.reset();
  } catch (err) {
  delMsg.className = 'msg error';
  delMsg.textContent = '❌ Wystąpił błąd';
- logMessage('error', `Błąd przy usuwaniu pracownika: ${err.message}`);
  }
  });
 
@@ -267,9 +241,8 @@
  const payload = { Type: p.Type, Size: p.Size, Price: newPrice };
  const r = await fetch('/api/equipment/prices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'include' });
  if (!r.ok) throw new Error(await r.text());
- logMessage('info', `Zaktualizowano cenę ${p.Type} ${p.Size} => ${newPrice}`);
  await loadPrices();
- } catch (err) { logMessage('error', 'Błąd zapisu: ' + (err.message || err)); }
+ } catch (err) { }
  };
 
  delBtn.onclick = async () => {
@@ -278,9 +251,8 @@
  const payload = { Type: p.Type, Size: p.Size };
  const r = await fetch('/api/equipment/prices', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'include' });
  if (!r.ok) throw new Error(await r.text());
- logMessage('info', `Usunięto cenę ${p.Type} ${p.Size}`);
  await loadPrices();
- } catch (err) { logMessage('error', 'Błąd usuwania: ' + (err.message || err)); }
+ } catch (err) { }
  };
 
  // Remove full offer: delete unreserved equipment items and the price entry
@@ -291,9 +263,8 @@
  const r = await fetch('/api/equipment/prices/remove-offer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'include' });
  if (!r.ok) throw new Error(await r.text());
  const data = await r.json().catch(() => ({}));
- logMessage('info', `Usunięto ofertę ${p.Type} ${p.Size}. Usunięto szt.: ${data.DeletedEquipment ??0}, Cena usunięta: ${data.PriceDeleted ? 'tak' : 'nie'}`);
  await loadPrices();
- } catch (err) { logMessage('error', 'Błąd usuwania oferty: ' + (err.message || err)); }
+ } catch (err) { }
  };
  });
  table.appendChild(tbody);
@@ -311,7 +282,6 @@
  const res = await fetch('/api/equipment/prices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'include' });
  if (!res.ok) throw new Error(await res.text());
  pricesMsgEl.className = 'msg success'; pricesMsgEl.textContent = 'Zapisano.';
- logMessage('info', `Zapisano cenę ${type} ${size} => ${price}`);
  await loadPrices();
  } catch (err) {
  pricesMsgEl.className = 'msg error'; pricesMsgEl.textContent = 'Błąd zapisu: ' + (err.message || err);
@@ -324,7 +294,6 @@
  // Init
  // -------------------
  await loadPrices();
- logMessage('info', '🛠️ Panel administratora załadowany');
 })();
 </script>
 }

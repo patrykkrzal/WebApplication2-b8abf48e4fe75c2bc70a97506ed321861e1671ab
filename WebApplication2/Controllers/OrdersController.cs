@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using System.Linq;
 using Rent.DTO;
 using Rent.Services;
+using System;
 
 namespace Rent.Controllers
 {
@@ -127,6 +128,14 @@ namespace Rent.Controllers
  if (dto.ItemsCount <=0)
  dto.ItemsCount = System.Math.Max(0, dto.ItemsDetail?.Sum(i => i.Quantity) ??0);
 
+ // Server-side stock validation: reject orders that request more than available
+ var stockCheck = await ValidateStockAsync(dto.ItemsDetail);
+ if (!stockCheck.ok)
+ {
+ _logger.LogWarning("Order creation blocked due to insufficient stock for user {UserId}: {Reason}", userId, stockCheck.message);
+ return BadRequest(new { Message = stockCheck.message });
+ }
+
  var rentedItems = (dto.Items?.Length ??0) >0
  ? string.Join(", ", dto.Items)
  : "Basket";
@@ -234,6 +243,17 @@ namespace Rent.Controllers
 
  _logger.LogInformation("Order created: Id={OrderId}, Final={Final}", order.Id, total);
 
+ // Ensure an audit log exists in OrderLogs so admin UI can show it even if trigger didn't run
+ try
+ {
+ _db.OrderLogs.Add(new OrderLog { OrderId = order.Id, Message = $"Order created by user {userId}. Final price: {total}", LogDate = DateTime.UtcNow });
+ await _db.SaveChangesAsync();
+ }
+ catch (Exception logEx)
+ {
+ _logger.LogWarning(logEx, "Failed to write OrderLog entry for order {OrderId}", order.Id);
+ }
+
  return Ok(new
  {
  Message = "Order created",
@@ -249,6 +269,8 @@ namespace Rent.Controllers
  catch (System.Exception ex)
  {
  _logger.LogError(ex, "Create order failed (detailed)");
+ // Attempt to log failure to OrderLogs table as well
+ try { _db.OrderLogs.Add(new OrderLog { OrderId =0, Message = "Order creation failed: " + ex.Message, LogDate = DateTime.UtcNow }); await _db.SaveChangesAsync(); } catch { }
  return StatusCode(500, ex.Message);
  }
  }
@@ -401,11 +423,25 @@ namespace Rent.Controllers
  var refreshed = await _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
 
  _logger.LogInformation("Order {OrderId} accepted. Reserved equipment: {Ids}", id, string.Join(',', reserved));
+
+ // Write an OrderLog entry so admin UI shows acceptance even if trigger didn't run
+ try
+ {
+ var due = refreshed?.DueDate?.ToString() ?? "(none)";
+ _db.OrderLogs.Add(new OrderLog { OrderId = id, Message = $"Order accepted. Reserved: {string.Join(',', reserved)}. DueDate: {due}", LogDate = DateTime.UtcNow });
+ await _db.SaveChangesAsync();
+ }
+ catch (Exception logEx)
+ {
+ _logger.LogWarning(logEx, "Failed to write OrderLog for acceptance of order {OrderId}", id);
+ }
+
  return Ok(new { Message = "Accepted", Reserved = reserved, ReservedCount = reserved.Count, DueDate = refreshed?.DueDate });
  }
  catch (System.Exception ex)
  {
  _logger.LogError(ex, "Accept failed for order {OrderId}", id);
+ try { _db.OrderLogs.Add(new OrderLog { OrderId = id, Message = "Accept failed: " + ex.Message, LogDate = DateTime.UtcNow }); await _db.SaveChangesAsync(); } catch { }
  return StatusCode(500, ex.Message);
  }
  }
@@ -445,14 +481,27 @@ namespace Rent.Controllers
 
  await _db.SaveChangesAsync();
  _logger.LogInformation("Order {OrderId} returned. Restored equipment: {Ids}", id, string.Join(',', restored));
+
+ try
+ {
+ _db.OrderLogs.Add(new OrderLog { OrderId = id, Message = $"Order returned. Restored: {string.Join(',', restored)}", LogDate = DateTime.UtcNow });
+ await _db.SaveChangesAsync();
+ }
+ catch (Exception logEx)
+ {
+ _logger.LogWarning(logEx, "Failed to write OrderLog for return of order {OrderId}", id);
+ }
+
  return Ok(new { Message = "Returned", Restored = restored, RestoredCount = restored.Count });
  }
  catch (System.Exception ex)
  {
  _logger.LogError(ex, "Returned failed for order {OrderId}", id);
+ try { _db.OrderLogs.Add(new OrderLog { OrderId = id, Message = "Returned failed: " + ex.Message, LogDate = DateTime.UtcNow }); await _db.SaveChangesAsync(); } catch { }
  return StatusCode(500, ex.Message);
  }
  }
+
  [Authorize(Roles = "Admin,Worker")]
  [HttpDelete("{id}")]
  public async Task<IActionResult> Delete(int id)

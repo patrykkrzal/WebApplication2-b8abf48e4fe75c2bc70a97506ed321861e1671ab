@@ -16,6 +16,7 @@ namespace Rent.Data
         public DbSet<Order> Orders { get; set; }
         public DbSet<RentalInfo> RentalInfo { get; set; }
         public DbSet<OrderedItem> OrderedItems { get; set; }
+        public DbSet<OrderLog> OrderLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -45,7 +46,15 @@ namespace Rent.Data
             modelBuilder.Entity<Order>().Property(o => o.BasePrice).HasPrecision(18, 2);
             modelBuilder.Entity<OrderedItem>().Property(oi => oi.PriceWhenOrdered).HasPrecision(18, 2);
 
-          
+
+            modelBuilder.Entity<OrderLog>(eb =>
+            {
+                eb.ToTable("OrderLogs");
+                eb.HasKey(l => l.Id);
+                eb.Property(l => l.Message).HasMaxLength(4000).IsRequired();
+                eb.Property(l => l.LogDate).HasDefaultValueSql("SYSUTCDATETIME()");
+            });
+
             modelBuilder
                 .HasDbFunction(typeof(DataContext).GetMethod(nameof(FnOrderDiscount), new[] { typeof(int), typeof(int) }))
                 .HasName("fnOrderDiscount")
@@ -54,11 +63,14 @@ namespace Rent.Data
 
         public static decimal FnOrderDiscount(int itemsCount, int days)
         {
-   
+
             throw new System.NotSupportedException("This method is only intended for use in LINQ-to-Entities queries and will be translated to SQL.");
         }
     }
 }
+
+
+
 
 
 

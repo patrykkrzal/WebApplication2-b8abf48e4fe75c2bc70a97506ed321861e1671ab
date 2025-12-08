@@ -16,21 +16,22 @@
     <header>
  <div class="buttons-top-right">
  <div class="buttons-inner">
- <a class="winter-button" href="/">☃️ Menu</a>
- <a class="winter-button" href="/Equipment.html" data-nav="/Equipment.html">🛷 Sprzęt</a>
+ <a class="winter-button" href="/">Menu</a>
+ <a class="winter-button" href="/Equipment.html" data-nav="/Equipment.html">Sprzęt</a>
  <details class="user-panel disabled">
- <summary class="winter-button">👤 Panel użytkownika</summary>
+ <summary class="winter-button">Panel użytkownika</summary>
  <div class="user-panel-menu">
- <a class="winter-button" href="/OrderHistory.html">📜 Historia zamówień</a>
- <a class="winter-button" href="/UserData.html">👤 Dane użytkownika</a>
- <a class="winter-button" href="/WorkerPanel.html" data-show-for-roles="Worker,Admin">🛠️ Panel pracownika</a>
- <a class="winter-button" href="/AdminPanel.html" data-show-for-roles="Admin">🔧 Panel administratora</a>
- <a class="winter-button" href="/AddOrDeleteItem.html" data-show-for-roles="Worker,Admin">➕ Dodaj sprzęt</a>
+ <a class="winter-button" href="/OrderHistory.html">Historia zamówień</a>
+ <a class="winter-button" href="/UserData.html">Dane użytkownika</a>
+ <a class="winter-button" href="/WorkerPanel.html" data-show-for-roles="Worker,Admin">Panel pracownika</a>
+ <a class="winter-button" href="/AdminPanel.html" data-show-for-roles="Admin">Panel administratora</a>
+ <a class="winter-button" href="/AddOrDeleteItem.html" data-show-for-roles="Worker,Admin">Dodaj / Usuń sprzęt</a>
+ <a class="winter-button" href="/AppLogs.html" data-show-for-roles="Admin">Logi zamówień</a>
  </div>
  </details>
- <a class="winter-button" href="/Kontakt.html" data-nav="/Kontakt.html">✉️ Kontakt</a>
- <a class="winter-button" href="/Basket.html" data-nav="/Basket.html">🧺 Koszyk</a>
- <a id="loginBtn" class="winter-button" href="/Login.html">🔐 Logowanie</a>
+ <a class="winter-button" href="/Kontakt.html" data-nav="/Kontakt.html">Kontakt</a>
+ <a class="winter-button" href="/Basket.html" data-nav="/Basket.html">Koszyk</a>
+ <a id="loginBtn" class="winter-button" href="/Login.html">Logowanie</a>
  </div>
  </div>
  </header>
@@ -76,7 +77,7 @@
  el.style.display = (authState.isAuthenticated && allowed.some(r => authState.roles.includes(r))) ? '' : 'none';
  });
 
- //  data-hide-for-roles
+ // data-hide-for-roles
  document.querySelectorAll('[data-hide-for-roles]').forEach(el => {
  const rolesAttr = el.getAttribute('data-hide-for-roles') || '';
  const hideFor = rolesAttr.split(',').map(r => r.trim().toLowerCase()).filter(Boolean);
@@ -105,7 +106,7 @@
  const loginBtn = document.getElementById('loginBtn');
  if (!loginBtn) return;
  if (authState.isAuthenticated) {
- loginBtn.textContent = '🔓 Wyloguj';
+ loginBtn.textContent = 'Wyloguj';
  loginBtn.href = '#';
  loginBtn.onclick = async (e) => {
  e.preventDefault();
@@ -124,7 +125,7 @@
  }
  };
  } else {
- loginBtn.textContent = '🔐 Logowanie';
+ loginBtn.textContent = 'Logowanie';
  loginBtn.href = '/Login.html';
  loginBtn.onclick = null;
  }
@@ -145,7 +146,7 @@
  const nav = el.dataset.nav || el.getAttribute('data-nav');
  if (!nav) return;
 
- const target = nav.startsWith('/') ? nav : ('/' + nav.replace(/^\/+/, ''));
+ const target = nav.startsWith('/') ? nav : ('/' + nav.replace(/^\/+/,'') );
  window.location.href = target;
  });
  });

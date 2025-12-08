@@ -1,0 +1,108 @@
+﻿@page "/AppLogs.html"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin")]
+@{
+ ViewData["Title"] = "Logi zamówień";
+}
+
+<style>
+.content-section { max-width:1020px; margin:0 auto; }
+.form-box { margin-top:8px; }
+.logs-list { margin-top:1rem; background:transparent; }
+.logs-item { padding: .6rem; border-bottom:1px solid rgba(255,255,255,.06); }
+.logs-controls { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.filter-input { padding:8px; background:transparent; border:1px solid rgba(255,255,255,.06); color:#fff; border-radius:6px; }
+.section-title { text-align:center; }
+</style>
+
+<div class="content-section">
+ <div class="frost-effect">
+ <h1 class="winter-title">📋 Logi zamówień</h1>
+ <p style="text-align:center; max-width:820px; margin:0 auto; opacity:.9">Podgląd wpisów audytowych związanych wyłącznie z zamówieniami (OrderLogs). Widoczne tylko dla administratorów.</p>
+
+ <div class="form-box">
+ <div class="logs-controls">
+ <input id="filterQ" class="filter-input" type="text" placeholder="Szukaj w treści" style="width:220px;" />
+ <input id="filterFrom" class="filter-input" type="date" />
+ <input id="filterTo" class="filter-input" type="date" />
+ <input id="filterOrderId" class="filter-input" type="number" placeholder="OrderId" style="width:100px;" />
+ <input id="filterTake" class="filter-input" type="number" min="1" max="2000" value="200" style="width:110px;" />
+ <button id="btnRefresh" class="winter-button">🔄 Odśwież</button>
+ <button id="btnExport" class="winter-button">⬇️ Eksportuj CSV</button>
+ </div>
+
+ <div id="logsMsg" class="msg" style="margin-top:.6rem"></div>
+
+ <div id="logsList" class="logs-list"></div>
+ </div>
+ </div>
+</div>
+
+@section Scripts {
+<script>
+(async function(){
+ const qs = sel => document.querySelector(sel);
+ function toQuery(params){
+ const p = new URLSearchParams();
+ for(const k in params){ if (params[k] !== null && params[k] !== undefined && String(params[k]).trim() !== '') p.append(k, params[k]); }
+ return p.toString() ? ('?' + p.toString()) : '';
+ }
+
+ async function fetchLogs(q, from, to, orderId, take){
+ try{
+ const params = { q: q || '', dateFrom: from || '', dateTo: to || '', orderId: orderId || '', take: take ||200 };
+ const url = '/api/orderlogs' + toQuery(params);
+ const res = await fetch(url, { credentials: 'include' });
+ if (!res.ok) throw new Error(await res.text());
+ return await res.json();
+ } catch (err){ qs('#logsMsg').textContent = 'Błąd pobierania logów: ' + (err.message || err); return []; }
+ }
+
+ function renderLogs(list){
+ const el = qs('#logsList'); if(!el) return;
+ el.innerHTML = '';
+ if (!list || !list.length) { el.textContent = 'Brak logów.'; return; }
+ list.forEach(l => {
+ const item = document.createElement('div');
+ item.className = 'logs-item';
+ const time = new Date(l.LogDate || l.logDate || l.Logdate || l.Timestamp || l.timestamp || '');
+ item.innerHTML = `<div style="font-size:0.9rem; opacity:0.9; display:flex; justify-content:space-between; align-items:center;"><div><strong>#${l.Id}</strong> ${l.OrderId ? ' | Order: ' + l.OrderId : ''}</div><div style="font-size:0.85rem; opacity:0.8">${time && !isNaN(time.getTime()) ? time.toLocaleString() : ''}</div></div><div style="margin-top:6px">${(l.Message || l.message || '').replace(/\n/g,'<br/>')}</div>`;
+ el.appendChild(item);
+ });
+ }
+
+ function toCSV(list){
+ const rows = [['Id','OrderId','LogDate','Message']];
+ (list || []).forEach(l => rows.push([l.Id, l.OrderId, l.LogDate || l.logDate || '', (l.Message||'').replace(/\n/g,'\\n')]));
+ return rows.map(r => r.map(c => '"' + String(c || '').replace(/"/g,'""') + '"').join(',')).join('\n');
+ }
+
+ qs('#btnRefresh').addEventListener('click', async () => {
+ qs('#logsMsg').textContent = '';
+ const q = qs('#filterQ').value;
+ const from = qs('#filterFrom').value;
+ const to = qs('#filterTo').value;
+ const orderId = qs('#filterOrderId').value;
+ const take = qs('#filterTake').value;
+ const list = await fetchLogs(q, from, to, orderId, take);
+ renderLogs(list);
+ });
+
+ qs('#btnExport').addEventListener('click', async () => {
+ const q = qs('#filterQ').value;
+ const from = qs('#filterFrom').value;
+ const to = qs('#filterTo').value;
+ const orderId = qs('#filterOrderId').value;
+ const take = qs('#filterTake').value;
+ const list = await fetchLogs(q, from, to, orderId, take);
+ const csv = toCSV(list);
+ const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+ const url = URL.createObjectURL(blob);
+ const a = document.createElement('a'); a.href = url; a.download = 'orderlogs.csv'; a.click(); URL.revokeObjectURL(url);
+ });
+
+ // auto load
+ setTimeout(() => qs('#btnRefresh').click(),300);
+})();
+</script>
+}

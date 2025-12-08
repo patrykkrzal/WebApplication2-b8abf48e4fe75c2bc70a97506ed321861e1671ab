@@ -254,6 +254,7 @@ function renderBasket() {
 
 async function preview() {
  const warn = qs('#stockWarning');
+ const placeBtn = qs('#placeOrder');
 
  if (basket.length ===0) return;
  if (warn) { warn.style.display = 'none'; warn.textContent = ''; }
@@ -271,7 +272,14 @@ async function preview() {
  })
  });
 
- if (!res.ok) throw new Error(await res.text());
+ if (!res.ok) {
+ const txt = await res.text();
+ console.warn('preview returned non-ok', res.status, txt);
+ // allow placing order if preview fails but show warning
+ if (placeBtn) placeBtn.disabled = false;
+ showWarning('Nie można sprawdzić dostępności. Spróbuj ponownie lub spróbuj z mniejszą ilością.', 'warn');
+ return;
+ }
 
  const d = await res.json();
  console.debug('preview response', d);
@@ -283,22 +291,26 @@ async function preview() {
  qs('#discountPct').textContent = Math.round(pct *100) + '%';
  qs('#finalTotal').textContent = final.toFixed(2) + ' zł';
 
- const placeBtn = qs('#placeOrder');
+ // robust handling of error/warning (case-insensitive)
+ const errMsg = d.Error || d.error || d.Message || d.message || null;
+ const warnMsg = d.Warning || d.warning || null;
 
- if (d.Error) {
+ if (errMsg) {
  if (placeBtn) placeBtn.disabled = true;
- showWarning(d.Error || 'Problem z dostępnością.');
- } else if (d.Warning) {
- // non-blocking warning: show availability note but allow placing order
+ showWarning(errMsg || 'Problem z dostępnością.');
+ } else if (warnMsg) {
  if (placeBtn) placeBtn.disabled = false;
- showWarning(d.Warning, 'warn');
+ // non-blocking warning
+ showWarning(warnMsg || 'Dostępność ograniczona.', 'warn');
  } else {
  if (placeBtn) placeBtn.disabled = false;
- // ensure any previous warnings are hidden
  hideWarning();
  }
  } catch (e) {
  console.error('preview error', e);
+ // network or unexpected error: allow placing order but show notice
+ const placeBtn = qs('#placeOrder'); if (placeBtn) placeBtn.disabled = false;
+ showWarning('Błąd sprawdzania dostępności. Spróbuj ponownie.', 'warn');
  }
 }
 

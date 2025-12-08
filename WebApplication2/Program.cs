@@ -14,12 +14,50 @@ using Rent.DTO;
 using Microsoft.Extensions.FileProviders;
 using Rent.Services;
 using Microsoft.Extensions.Caching.Memory;
+using Serilog;
+using Serilog.Events;
+using Serilog.Formatting.Json;
+using Serilog.Sinks.MSSqlServer;
+using System.Collections.ObjectModel;
 
 public class Program
 {
     public static async Task Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
+
+        // Configure Serilog after builder is available so we can read connection string
+        var logPath = Path.Combine(builder.Environment.ContentRootPath, "logs", "app-.log");
+        var columnOptions = new ColumnOptions();
+        // remove Properties column if you don't want it
+        columnOptions.Store.Remove(StandardColumn.Properties);
+        // NOTE: MessageTemplate is included by default in ColumnOptions.Store; do NOT add it again — causes duplicate column error
+        // columnOptions.Store.Add(StandardColumn.MessageTemplate); // removed to avoid DuplicateNameException
+        columnOptions.AdditionalColumns = new Collection<SqlColumn>
+        {
+            new SqlColumn("UserId", System.Data.SqlDbType.NVarChar, dataLength:450),
+            new SqlColumn("RequestPath", System.Data.SqlDbType.NVarChar, dataLength:1000)
+        };
+
+        var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
+
+        var loggerCfg = new LoggerConfiguration()
+            .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+            .Enrich.FromLogContext()
+            .WriteTo.File(new JsonFormatter(), logPath, rollingInterval: RollingInterval.Day);
+
+        if (!string.IsNullOrWhiteSpace(connStr))
+        {
+            loggerCfg = loggerCfg.WriteTo.MSSqlServer(
+                connectionString: connStr,
+                sinkOptions: new MSSqlServerSinkOptions { TableName = "AppLogs", AutoCreateSqlTable = true },
+                columnOptions: columnOptions);
+        }
+
+        Log.Logger = loggerCfg.CreateLogger();
+
+        // replace default logging with Serilog
+        builder.Host.UseSerilog();
 
         // CONNECTION STRING OVERRIDES
         var rentDbEnv = Environment.GetEnvironmentVariable("RENT_DB");
@@ -42,7 +80,7 @@ public class Program
 
         Console.WriteLine("Connection string: " + builder.Configuration.GetConnectionString("DefaultConnection"));
 
-      
+
         builder.Services.AddControllers().AddJsonOptions(o =>
         {
             o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
@@ -101,6 +139,17 @@ public class Program
 
         var app = builder.Build();
 
+        // Enrich logs with user id and request path
+        app.Use(async (context, next) =>
+        {
+            var userId = context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            using (Serilog.Context.LogContext.PushProperty("UserId", userId))
+            using (Serilog.Context.LogContext.PushProperty("RequestPath", context.Request?.Path.Value))
+            {
+                await next();
+            }
+        });
+
         //MIGRATIONS 
         using (var scope = app.Services.CreateScope())
         {
@@ -151,14 +200,14 @@ public class Program
             }
         }
 
-       
+
         app.UseSwagger();
         app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Rent API V1"));
         app.UseHttpsRedirection();
         app.UseDefaultFiles();
         app.UseStaticFiles();
 
-      
+
         var pagesStaticPath = Path.Combine(app.Environment.ContentRootPath, "Pages");
         if (Directory.Exists(pagesStaticPath))
         {
@@ -179,7 +228,6 @@ public class Program
 
         app.Run();
     }
-
     private static async Task ExecuteSqlScriptBatchedAsync(string connectionString, string script)
     {
         var batches = Regex.Split(script, @"^\s*GO\s*$", RegexOptions.Multiline | RegexOptions.IgnoreCase)
