@@ -74,11 +74,38 @@
  credentials: 'include'
  });
 
- let text = await res.text();
- try { text = JSON.parse(text); } catch { }
+ const raw = await res.text();
+ let parsed;
+ try { parsed = JSON.parse(raw); } catch { parsed = raw; }
 
- if (!res.ok) throw (typeof text === 'string' ? new Error(text) : new Error(JSON.stringify(text)));
- return text;
+ if (!res.ok) {
+ // Try to extract ModelState-style errors
+ if (parsed && typeof parsed === 'object') {
+ // errors may be in parsed.errors (dictionary) or parsed.Errors (array) or parsed.Message
+ if (parsed.errors) {
+ const dict = parsed.errors;
+ const msgs = [];
+ Object.keys(dict).forEach(k => {
+ const v = dict[k];
+ if (Array.isArray(v)) msgs.push(...v);
+ else if (typeof v === 'string') msgs.push(v);
+ });
+ throw new Error(msgs.join('; ') || 'Błąd walidacji danych.');
+ }
+ if (parsed.Errors && Array.isArray(parsed.Errors)) {
+ throw new Error(parsed.Errors.join('; '));
+ }
+ if (parsed.Message || parsed.message) {
+ throw new Error(parsed.Message || parsed.message);
+ }
+ }
+ 
+ // fallback: stringify
+ const txt = (typeof parsed === 'string') ? parsed : JSON.stringify(parsed);
+ throw new Error(txt || 'Błąd serwera');
+ }
+
+ return parsed;
  }
 
  document.getElementById('registerForm').addEventListener('submit', async e => {

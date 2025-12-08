@@ -222,13 +222,25 @@ function renderBasket() {
  showWarning('Koszyk jest pusty. Dodaj przedmioty, aby złożyć zamówienie.');
  if (placeBtn) placeBtn.disabled = true;
  } else {
- el.innerHTML = basket
- .map(i =>
- `<div class="contact-item">
- <strong>${name(i)} × ${qty(i)}</strong>
+ // coalesce identical items by Type+Size for display
+ const merged = [];
+ basket.forEach(i => {
+ const t = (i.Type || i.type || '').toString();
+ const s = (i.Size || i.size || '').toString();
+ const q = Number(i.Quantity || i.quantity || i.Qty ||1) ||1;
+ const ids = Array.isArray(i.EquipmentIds || i.equipmentIds) ? (i.EquipmentIds || i.equipmentIds) : [];
+ const idx = merged.findIndex(m => m.Type === t && m.Size === s);
+ if (idx >=0) { merged[idx].Quantity = Number(merged[idx].Quantity ||1) + q; merged[idx].EquipmentIds = Array.from(new Set([...(merged[idx].EquipmentIds||[]), ...ids])); }
+ else merged.push({ Type: t, Size: s, Quantity: q, Price: i.Price ?? i.price, EquipmentIds: ids });
+ 
+ });
+ 
+ el.innerHTML = merged
+ .map(i => `
+ <div class="contact-item">
+ <strong>${(i.Type || i.type) + ' ' + (i.Size || i.size)} × ${i.Quantity}</strong>
  <div class="contact-value">${(price(i) * qty(i)).toFixed(2)} zł</div>
- </div>`
- )
+ </div>`)
  .join('');
  hideWarning();
  }

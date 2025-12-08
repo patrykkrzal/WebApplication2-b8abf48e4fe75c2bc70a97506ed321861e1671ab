@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Rent.Data;
 using Rent.DTO;
@@ -11,6 +12,7 @@ namespace Rent.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Roles = "Admin")]
     public class WorkersController : ControllerBase
     {
         private readonly UserManager<User> _userManager;
@@ -44,7 +46,7 @@ namespace Rent.Controllers
 
             await _userManager.AddToRoleAsync(user, "Worker");
 
-           
+
             int resolvedRentalInfoId = dto.RentalInfoId;
             bool exists = resolvedRentalInfoId > 0 && await _db.RentalInfo.AnyAsync(r => r.Id == resolvedRentalInfoId);
             if (!exists)

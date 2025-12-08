@@ -150,7 +150,45 @@
  const basketKey = 'basket';
  function getBasket() { try { return JSON.parse(localStorage.getItem(basketKey) || '[]'); } catch { return []; } }
  function saveBasket(b) { localStorage.setItem(basketKey, JSON.stringify(b)); }
- function addToBasket(entry) { const b = getBasket(); b.push(entry); saveBasket(b); }
+ function addToBasket(entry) {
+ const b = getBasket();
+ // normalize keys
+ const type = (entry.Type || entry.type || '').toString();
+ const size = (entry.Size || entry.size || '').toString();
+ const qty = Number(entry.Quantity ?? entry.quantity ??1) ||1;
+ const ids = Array.isArray(entry.EquipmentIds || entry.equipmentIds) ? (entry.EquipmentIds || entry.equipmentIds) : [];
+
+ // try to find existing matching item (Type + Size)
+ const idx = b.findIndex(i => {
+ const it = (i.Type || i.type || '').toString();
+ const is = (i.Size || i.size || '').toString();
+ return it === type && is === size;
+ });
+
+ if (idx >=0) {
+ const existing = b[idx];
+ // update quantity
+ const existingQty = Number(existing.Quantity ?? existing.quantity ??1) ||1;
+ existing.Quantity = existingQty + qty;
+ // merge ids uniquely
+ const existingIds = Array.isArray(existing.EquipmentIds || existing.equipmentIds) ? (existing.EquipmentIds || existing.equipmentIds) : [];
+ const merged = Array.from(new Set([ ...existingIds.map(x=>Number(x)), ...ids.map(x=>Number(x)) ].filter(x => Number.isFinite(x))));
+ existing.EquipmentIds = merged;
+ b[idx] = existing;
+ } else {
+ // ensure consistent shape
+ const obj = {
+ Type: type,
+ Size: size,
+ Quantity: qty,
+ Price: entry.Price ?? entry.price,
+ EquipmentIds: ids
+ };
+ b.push(obj);
+ }
+
+ saveBasket(b);
+ }
 
  function groupEquipment() {
  groupedTypeSize = equipmentData.reduce((acc, e) => {

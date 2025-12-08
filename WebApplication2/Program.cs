@@ -36,20 +36,8 @@ public class Program
         }
         else
         {
-            // Per-user LocalDB
-            var currentCs = builder.Configuration.GetConnectionString("DefaultConnection");
-            if (!string.IsNullOrWhiteSpace(currentCs) && currentCs.Contains("(localdb)\\MSSQLLocalDB", StringComparison.OrdinalIgnoreCase))
-            {
-                var b = new SqlConnectionStringBuilder(currentCs);
-                var baseName = string.IsNullOrWhiteSpace(b.InitialCatalog) ? "RentDb" : b.InitialCatalog;
-                var uname = Environment.UserName ?? "User";
-                var sanitized = new string(uname.Where(char.IsLetterOrDigit).ToArray());
-                if (string.IsNullOrWhiteSpace(sanitized)) sanitized = "User";
-                var perUser = baseName + "_" + sanitized;
-                b.InitialCatalog = perUser;
-                builder.Configuration["ConnectionStrings:DefaultConnection"] = b.ToString();
-                Console.WriteLine($"Using per-user LocalDB database: {perUser}");
-            }
+            // No per-user override: use the DefaultConnection from configuration or environment as-is.
+            // If you want per-user LocalDB behavior, enable it explicitly via configuration.
         }
 
         Console.WriteLine("Connection string: " + builder.Configuration.GetConnectionString("DefaultConnection"));
@@ -70,6 +58,9 @@ public class Program
 
         builder.Services.AddMemoryCache();
         builder.Services.AddScoped<IPriceResolver, EfPriceResolver>();
+        builder.Services.AddScoped<OrderSqlService>();
+        builder.Services.AddScoped<EquipmentStateService>();
+        builder.Services.AddScoped<OrderService>();
 
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen(c =>
@@ -128,10 +119,10 @@ public class Program
                 var script = await File.ReadAllTextAsync(sqlPath);
                 await ExecuteSqlScriptBatchedAsync(builder.Configuration.GetConnectionString("DefaultConnection"), script);
                 Console.WriteLine($"Executed DatabaseObjects.sql from '{sqlPath}'.");
-            }
 
-            var seeder = scope.ServiceProvider.GetRequiredService<Seed>();
-            seeder.SeedDataContext();
+                var seeder = scope.ServiceProvider.GetRequiredService<Seed>();
+                seeder.SeedDataContext();
+            }
         }
 
         //ADMIN/USERS/WORKERS ROLES
@@ -192,13 +183,43 @@ public class Program
     private static async Task ExecuteSqlScriptBatchedAsync(string connectionString, string script)
     {
         var batches = Regex.Split(script, @"^\s*GO\s*$", RegexOptions.Multiline | RegexOptions.IgnoreCase)
-            .Where(s => !string.IsNullOrWhiteSpace(s));
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .ToArray();
         using var conn = new SqlConnection(connectionString);
         await conn.OpenAsync();
-        foreach (var batch in batches)
+        for (var i =0; i < batches.Length; i++)
         {
-            using var cmd = new SqlCommand(batch, conn);
-            await cmd.ExecuteNonQueryAsync();
+            var batch = batches[i];
+            try
+            {
+                using var cmd = new SqlCommand(batch, conn);
+                await cmd.ExecuteNonQueryAsync();
+            }
+            catch (Exception ex)
+            {
+                // Log the batch index and a snippet of the failing SQL to help debugging
+                var snippet = batch.Length >1000 ? batch.Substring(0,1000) + "\n... (truncated)" : batch;
+                Console.Error.WriteLine($"Failed executing SQL batch #{i +1}/{batches.Length}: {ex.Message}");
+                Console.Error.WriteLine("--- Begin failing batch ---");
+                Console.Error.WriteLine(snippet);
+                Console.Error.WriteLine("--- End failing batch ---");
+                throw;
+            }
         }
+    }
+
+    private static string GenerateTemporaryPassword(int length =12)
+    {
+        const string chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_";
+        var rnd = new System.Security.Cryptography.RNGCryptoServiceProvider();
+        var data = new byte[length];
+        rnd.GetBytes(data);
+        var result = new char[length];
+        for (int i =0; i < length; i++)
+        {
+            var idx = data[i] % chars.Length;
+            result[i] = chars[idx];
+        }
+        return new string(result);
     }
 }

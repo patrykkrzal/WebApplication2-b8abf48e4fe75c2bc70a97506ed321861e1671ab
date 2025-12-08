@@ -51,10 +51,32 @@
  credentials: 'include'
  });
 
- let text = await res.text();
- try { text = JSON.parse(text); } catch {}
+ const raw = await res.text();
+ let parsed;
+ try { parsed = JSON.parse(raw); } catch { parsed = raw; }
 
- if (!res.ok) throw (typeof text === 'string' ? new Error(text) : new Error(JSON.stringify(text)));
+ if (!res.ok) {
+ // If server returned model validation with Email error, show friendly message
+ try {
+ const errors = parsed && parsed.errors ? parsed.errors : (parsed && parsed.Errors ? parsed.Errors : null);
+ if (errors && (errors.Email || errors.email)) {
+ msg.className = 'msg error';
+ msg.textContent = 'Błędny email lub hasło';
+ return;
+ }
+ } catch { /* ignore */ }
+
+ // if server sent a message field, show it
+ if (parsed && (parsed.Message || parsed.message)) {
+ msg.className = 'msg error';
+ msg.textContent = parsed.Message || parsed.message;
+ return;
+ }
+ 
+ // fallback
+ const errText = (typeof parsed === 'string') ? parsed : JSON.stringify(parsed);
+ throw new Error(errText);
+ }
 
  msg.className = 'msg success';
  msg.textContent = 'Logowanie pomyślne';

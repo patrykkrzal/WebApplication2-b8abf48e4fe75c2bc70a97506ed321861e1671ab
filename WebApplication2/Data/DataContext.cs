@@ -54,7 +54,7 @@ namespace Rent.Data
 
         public static decimal FnOrderDiscount(int itemsCount, int days)
         {
-            // This method is for use in LINQ queries and should not be executed client-side.
+   
             throw new System.NotSupportedException("This method is only intended for use in LINQ-to-Entities queries and will be translated to SQL.");
         }
     }
