@@ -27,7 +27,7 @@ namespace Rent.DTO
         [RegularExpression(@"^\d{9}$", ErrorMessage = "Phone number must be exactly 9 digits.")]
         public string ContactNumber { get; set; }
 
-        // Optional extras mapped to domain fields 
+       
         public string? Login { get; set; }
     }
 }

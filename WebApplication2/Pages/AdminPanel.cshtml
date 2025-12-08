@@ -256,7 +256,8 @@
  const btnTd = document.createElement('td');
  const saveBtn = document.createElement('button'); saveBtn.className = 'winter-button'; saveBtn.textContent = '💾';
  const delBtn = document.createElement('button'); delBtn.className = 'winter-button'; delBtn.textContent = '🗑️';
- btnTd.appendChild(saveBtn); btnTd.appendChild(delBtn);
+ const removeOfferBtn = document.createElement('button'); removeOfferBtn.className = 'winter-button danger'; removeOfferBtn.textContent = '❌';
+ btnTd.appendChild(saveBtn); btnTd.appendChild(delBtn); btnTd.appendChild(removeOfferBtn);
  tr.appendChild(btnTd);
  tbody.appendChild(tr);
 
@@ -280,6 +281,19 @@
  logMessage('info', `Usunięto cenę ${p.Type} ${p.Size}`);
  await loadPrices();
  } catch (err) { logMessage('error', 'Błąd usuwania: ' + (err.message || err)); }
+ };
+
+ // Remove full offer: delete unreserved equipment items and the price entry
+ removeOfferBtn.onclick = async () => {
+ if (!confirm(`Czy na pewno chcesz usunąć pozycję z oferty ${p.Type} ${p.Size}?`)) return;
+ try {
+ const payload = { Type: p.Type, Size: p.Size };
+ const r = await fetch('/api/equipment/prices/remove-offer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'include' });
+ if (!r.ok) throw new Error(await r.text());
+ const data = await r.json().catch(() => ({}));
+ logMessage('info', `Usunięto ofertę ${p.Type} ${p.Size}. Usunięto szt.: ${data.DeletedEquipment ??0}, Cena usunięta: ${data.PriceDeleted ? 'tak' : 'nie'}`);
+ await loadPrices();
+ } catch (err) { logMessage('error', 'Błąd usuwania oferty: ' + (err.message || err)); }
  };
  });
  table.appendChild(tbody);

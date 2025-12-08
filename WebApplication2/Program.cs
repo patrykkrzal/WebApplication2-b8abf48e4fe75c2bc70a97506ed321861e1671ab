@@ -54,7 +54,7 @@ public class Program
 
         Console.WriteLine("Connection string: " + builder.Configuration.GetConnectionString("DefaultConnection"));
 
-        // SERVICES
+      
         builder.Services.AddControllers().AddJsonOptions(o =>
         {
             o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
@@ -62,14 +62,12 @@ public class Program
             o.JsonSerializerOptions.DictionaryKeyPolicy = null;
         });
 
-        // Add Razor Pages support so Razor Pages in wwwroot or Pages folder will be served
         builder.Services.AddRazorPages();
 
         builder.Services.AddScoped<Seed>();
         builder.Services.AddDbContext<DataContext>(options =>
             options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-        // caching and price resolver
         builder.Services.AddMemoryCache();
         builder.Services.AddScoped<IPriceResolver, EfPriceResolver>();
 
@@ -116,6 +114,7 @@ public class Program
         using (var scope = app.Services.CreateScope())
         {
             var context = scope.ServiceProvider.GetRequiredService<DataContext>();
+
             context.Database.Migrate();
 
             var sqlPathCandidates = new[]
@@ -168,8 +167,7 @@ public class Program
         app.UseDefaultFiles();
         app.UseStaticFiles();
 
-        // Serve static files from the Pages folder so frontend assets placed there are accessible.
-        // This allows placing CSS/JS/images inside the Pages folder while still serving them as static files.
+      
         var pagesStaticPath = Path.Combine(app.Environment.ContentRootPath, "Pages");
         if (Directory.Exists(pagesStaticPath))
         {
@@ -186,7 +184,6 @@ public class Program
         app.MapControllers();
         app.MapIdentityApi<User>();
 
-        // Map Razor Pages so .cshtml Razor Pages are served
         app.MapRazorPages();
 
         app.Run();

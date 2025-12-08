@@ -4,19 +4,19 @@
 }
 
 <style>
-/* Keep outer content-section background intact; only remove inner form "card" for add/delete page */
+
 .form-box { background: transparent !important; box-shadow: none !important; padding:0 !important; margin-top:12px !important; }
 </style>
 
 <h1 class="winter-title">Zarządzanie sprzętem</h1>
 
-<!-- Add/Delete form below, centered using dedicated CSS -->
+<!-- Add/Delete -->
 <div class="add-item-wrapper">
  <details class="user-panel" id="addPanel" open>
  <summary class="winter-button" aria-label="Dodaj sprzęt">➕ / ➖ Sprzęt</summary>
 
  <form id="addItemForm" class="form-box" novalidate>
- <div class="mb-3">
+ <div class="mb-3>
  <label for="type">Rodzaj sprzętu</label>
  <select id="type" name="Type" class="form-select" required>
  <option value="">-- wybierz --</option>
@@ -45,7 +45,7 @@
  </div>
 
  <div class="dual-actions">
- <button type="submit" class="submit-btn" id="btnAdd">➕ Dodaj</button>
+ <button type="button" class="submit-btn" id="btnAdd">➕ Dodaj</button>
  <button type="button" class="submit-btn delete-btn" id="btnDelete">➖ Usuń</button>
  </div>
 
@@ -100,6 +100,32 @@
  return text;
  }
 
+ function extractErrorMessage(err) {
+ if (!err) return 'Nieznany błąd.';
+ let obj = null;
+ if (typeof err === 'object') obj = err;
+ else {
+ try { obj = JSON.parse(typeof err === 'string' ? err : JSON.stringify(err)); } catch { obj = null; }
+ }
+ if (obj && (obj.errors || obj.Errors)) {
+ const errors = obj.errors || obj.Errors;
+ const keys = Object.keys(errors || {});
+ const keyString = keys.join(' ').toLowerCase();
+ if (keyString.includes('type') || keyString.includes('size') || keyString.includes('dto') || keyString.includes('$.type') || keyString.includes('$.size')) {
+ return 'Wybierz poprawny typ i rozmiar.';
+ }
+ const msgs = [];
+ for (const k of Object.keys(errors)) {
+ const val = errors[k];
+ if (Array.isArray(val)) msgs.push(...val);
+ else if (typeof val === 'string') msgs.push(val);
+ }
+ if (msgs.length) return msgs.join('; ');
+ }
+ if (obj && (obj.Message || obj.message || obj.title)) return (obj.Message || obj.message || obj.title).toString();
+ try { return JSON.stringify(err); } catch { return String(err); }
+ }
+
  async function getMe() {
  if (window.__rent && typeof window.__rent.getMe === 'function') {
  try { return await window.__rent.getMe(); } catch { /* fallback */ }
@@ -108,9 +134,7 @@
  let res = await fetch(`${apiBase}/api/Auth/me`, { credentials: 'include' });
  if (!res.ok) res = await fetch('/api/users/me', { credentials: 'include' });
  if (!res.ok) return null;
-
- try { return await res.json(); }
- catch { return null; }
+ try { return await res.json(); } catch { return null; }
  } catch { return null; }
  }
 
@@ -152,6 +176,7 @@
  function makeOption(value, available) {
  const opt = document.createElement('option');
  opt.value = value;
+ // include available count in visible text
  opt.textContent = `${tSize(value)}${(typeof available === 'number') ? ` (dostępne: ${available})` : ''}`;
  if (typeof available === 'number') opt.dataset.available = available;
  return opt;
@@ -161,6 +186,7 @@
  const sizeSelect = document.getElementById('size');
  sizeSelect.innerHTML = '';
 
+ // If we have availability data use it, otherwise fall back to the static size map
  const sizes = availabilityByType[type] ? Object.keys(availabilityByType[type]) : (sizeMap[type] || ['Small', 'Medium', 'Large']);
  if (!sizes || sizes.length ===0) {
  sizeSelect.appendChild(new Option('Brak dostępnych rozmiarów', ''));
@@ -200,50 +226,14 @@
  const me = await getMe();
  const guard = document.getElementById('roleGuard');
  const form = document.getElementById('addItemForm');
-
- // case-insensitive role check
  const roles = (me && (Array.isArray(me.Roles) || Array.isArray(me.roles))) ? (me.Roles || me.roles) : [];
  const rolesLower = roles.map(r => String(r).toLowerCase());
  const hasAccess = rolesLower.includes('admin') || rolesLower.includes('worker');
-
- if (!hasAccess) {
- if (guard) guard.style.display = 'block';
- if (form) form.style.display = 'none';
- document.getElementById('addPanel').classList.add('disabled');
- } else {
- if (guard) guard.style.display = 'none';
- if (form) form.style.display = 'block';
- document.getElementById('addPanel').classList.remove('disabled');
- }
+ if (!hasAccess) { if (guard) guard.style.display = 'block'; if (form) form.style.display = 'none'; document.getElementById('addPanel').classList.add('disabled'); } else { if (guard) guard.style.display = 'none'; if (form) form.style.display = 'block'; document.getElementById('addPanel').classList.remove('disabled'); }
  }
 
- document.getElementById('type').addEventListener('change', e => {
- const type = e.target.value;
- populateSizesForType(type);
- });
-
+ document.getElementById('type').addEventListener('change', e => { const type = e.target.value; populateSizesForType(type); });
  document.getElementById('size').addEventListener('change', onSizeChanged);
-
- document.getElementById('addItemForm').addEventListener('submit', async e => {
- e.preventDefault();
- const msg = document.getElementById('msg');
- msg.className = 'msg';
- msg.textContent = 'Dodawanie...';
- try {
- const dto = toDto();
- const result = await postJson(`${apiBase}/api/equipment/add`, dto);
- msg.className = 'msg success';
- msg.textContent = `✅ Dodano: ${result.Type ?? dto.Type} ${result.Size ?? dto.Size}. Ilość: ${result.Quantity ?? dto.Quantity}`;
- e.target.reset();
- const items = await getAvailability();
- buildAvailabilityMap(items);
- document.getElementById('size').disabled = true;
- document.getElementById('size').innerHTML = '<option value="">Najpierw wybierz typ</option>';
- } catch (err) {
- msg.className = 'msg error';
- msg.textContent = '❌ Błąd: ' + (err.message || err);
- }
- });
 
  document.getElementById('btnDelete').addEventListener('click', async () => {
  const msg = document.getElementById('msg');
@@ -263,11 +253,46 @@
  msg.textContent = `🗑️ Usunięto: ${dto.Type} ${dto.Size}. Usunięto: ${result.Deleted ??0} Pozostało: ${result.Remaining ?? ''}`;
  const items = await getAvailability();
  buildAvailabilityMap(items);
+ // reset selects to default after delete
+ document.getElementById('type').selectedIndex =0;
+ document.getElementById('size').disabled = true;
+ document.getElementById('size').innerHTML = '<option value="">Najpierw wybierz typ</option>';
+ document.getElementById('quantity').value = '1';
  } catch (err) {
  msg.className = 'msg error';
  msg.textContent = '❌ Błąd usuwania: ' + (err.message || err);
  }
  });
+
+ async function handleAdd() {
+ const msg = document.getElementById('msg');
+ msg.className = 'msg';
+ msg.textContent = 'Dodawanie...';
+ try {
+ const dto = toDto();
+ const result = await postJson(`${apiBase}/api/equipment/add`, dto);
+ msg.className = 'msg success';
+ msg.textContent = `✅ Dodano: ${result.Type ?? dto.Type} ${result.Size ?? dto.Size}. Ilość: ${result.Quantity ?? dto.Quantity}`;
+ // reset form so type/size selection appears fresh
+ document.getElementById('type').selectedIndex =0;
+ document.getElementById('size').disabled = true;
+ document.getElementById('size').innerHTML = '<option value="">Najpierw wybierz typ</option>';
+ document.getElementById('quantity').value = '1';
+ const items = await getAvailability();
+ buildAvailabilityMap(items);
+ } catch (err) {
+ msg.className = 'msg error';
+ msg.textContent = '❌ Błąd: ' + (err.message || err);
+ }
+ }
+
+ // wire add button to avoid form submit and full page reload
+ const addBtnEl = document.getElementById('btnAdd');
+ if (addBtnEl) addBtnEl.addEventListener('click', async (e) => { e.preventDefault(); await handleAdd(); });
+
+ // Prevent native form submit (e.g., Enter) from reloading the page
+ const formEl = document.getElementById('addItemForm');
+ if (formEl) formEl.addEventListener('submit', (e) => { e.preventDefault(); });
 
  (async function init(){
  await ensureRoles();

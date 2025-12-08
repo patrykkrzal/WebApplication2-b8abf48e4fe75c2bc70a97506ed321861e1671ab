@@ -74,7 +74,7 @@ namespace Rent.Controllers
             return Ok(new { Message = "Logout successful" });
         }
 
-        // Endpoint do pobrania bieżącego użytkownika i jego ról (dla skryptu UI)
+        // Endpoint do pobrania bieżącego użytkownika i jego ról 
         [Authorize]
         [HttpGet("me")]
         public async Task<IActionResult> Me()

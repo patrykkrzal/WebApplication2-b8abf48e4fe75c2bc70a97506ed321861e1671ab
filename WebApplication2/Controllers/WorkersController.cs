@@ -44,8 +44,7 @@ namespace Rent.Controllers
 
             await _userManager.AddToRoleAsync(user, "Worker");
 
-            // Resolve RentalInfoId automatically: if provided id doesn't exist (or is0),
-            // fallback to the first existing RentalInfo id.
+           
             int resolvedRentalInfoId = dto.RentalInfoId;
             bool exists = resolvedRentalInfoId > 0 && await _db.RentalInfo.AnyAsync(r => r.Id == resolvedRentalInfoId);
             if (!exists)

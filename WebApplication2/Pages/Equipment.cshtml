@@ -100,7 +100,7 @@
  const sizeOptionsHtml = sizeKeys.map((sizeKey, idx) => {
  const arr = sizeMap[sizeKey];
  const available = arr.filter(x => (x.is_In_Werehouse || x.Is_In_Werehouse) && !(x.is_Reserved || x.Is_Reserved)).length;
- // prefer UnitPrice from API (set by EquipmentController), fallback to price/Price
+
  const price = arr[0].UnitPrice || arr[0].unitPrice || arr[0].price || arr[0].Price ||0;
  return `<option value='${sizeKey}' data-ids='${arr.map(a => a.id || a.Id).join(',')}' data-available='${available}' data-price='${price}' ${idx ===0 ? 'selected' : ''}>${sizeKey} (dostępne: ${available}) — ${(Number(price) ||0).toFixed(2)} zł</option>`;
  }).join('');
@@ -119,18 +119,9 @@
  const qtyEl = active.querySelector('.ovQty');
  const price = parseFloat((opt.dataset.price || '').replace(',', '.')) ||0;
  if (unitPriceEl) unitPriceEl.textContent = price.toLocaleString('pl-PL', { minimumFractionDigits:2, maximumFractionDigits:2 });
- let available = parseInt(opt.dataset.available);
- if (!Number.isFinite(available)) {
- const type = equipmentSlides[centerIndex].type;
- const size = opt.value;
- const arr = (groupedTypeSize[type] && groupedTypeSize[type][size]) ? groupedTypeSize[type][size] : [];
- available = arr.filter(x => (x.is_In_Werehouse || x.Is_Werehouse) && !(x.is_Reserved || x.Is_Reserved)).length;
- }
- available = Number.isFinite(available) ? available :0;
- let qty = parseInt(qtyEl?.textContent) ||1;
- if (qty > available) { qty = available >0 ? available :1; if (qtyEl) qtyEl.textContent = qty; }
- if (plusBtn) plusBtn.disabled = qty >= available;
- if (minusBtn) minusBtn.disabled = qty <=1;
+ // Do not enforce availability here; allow user to choose any quantity.
+ if (plusBtn) plusBtn.disabled = false;
+ if (minusBtn) minusBtn.disabled = false;
  }
 
  function bindOverlayHandlers() {
@@ -142,25 +133,19 @@
  const addBtn = active.querySelector('.ovAdd');
  if (sel) sel.onchange = updateOverlayPrice;
  if (minus) minus.onclick = () => { let v = parseInt(qtyEl.textContent) ||1; if (v >1) { qtyEl.textContent = v -1; updateOverlayPrice(); } };
- if (plus) plus.onclick = () => { let v = parseInt(qtyEl.textContent) ||1; const sel2 = active.querySelector('.ovSizeSel'); const opt = sel2?.selectedOptions[0]; let avail = parseInt(opt?.dataset?.available); if (!Number.isFinite(avail)) { const type = equipmentSlides[centerIndex].type; const size = sel2.value; const arr = (groupedTypeSize[type] && groupedTypeSize[type][size]) ? groupedTypeSize[type][size] : []; avail = arr.filter(x => (x.is_In_Werehouse || x.Is_Werehouse) && !(x.is_Reserved || x.Is_Reserved)).length; } if (v < Math.max(1, avail)) { qtyEl.textContent = v +1; updateOverlayPrice(); } };
+ if (plus) plus.onclick = () => { let v = parseInt(qtyEl.textContent) ||1; if (v <999) { qtyEl.textContent = v +1; updateOverlayPrice(); } };
  if (addBtn) addBtn.onclick = () => {
  const sel2 = active.querySelector('.ovSizeSel'); const opt = sel2?.selectedOptions[0]; if (!opt) return;
  const qty = parseInt(qtyEl.textContent) ||1;
- let avail = parseInt(opt.dataset.available);
- if (!Number.isFinite(avail)) {
- const type = equipmentSlides[centerIndex].type; const size = sel2.value; const arr = (groupedTypeSize[type] && groupedTypeSize[type][size]) ? groupedTypeSize[type][size] : [];
- avail = arr.filter(x => (x.is_In_Werehouse || x.Is_Werehouse) && !(x.is_Reserved || x.Is_Reserved)).length;
- }
- if (qty > avail) { alert('Brak wystarczającej ilości na stanie.'); return; }
+ // Do not block adding regardless of availability; include available ids if present
  const ids = (opt.dataset.ids || '').split(',').filter(Boolean).slice(0, qty).map(x => parseInt(x));
  const type = equipmentSlides[centerIndex].type; const size = opt.value;
- const current = getBasket();
- const existingQty = current.filter(i => String(i.Type || i.type) === String(type) && String(i.Size || i.size) === String(size)).reduce((s, i) => s + (parseInt(i.Quantity || i.qty || i.Qty) ||1),0);
- if (existingQty + qty > avail) { alert(`Nie można dodać więcej niż dostępne. ${type} ${size}: dostępne ${avail}, już w koszyku ${existingQty}.`); return; }
  addToBasket({ Type: type, Size: size, Price: parseFloat((opt.dataset.price || '').replace(',', '.')) ||0, Quantity: qty, EquipmentIds: ids });
  const info = active.querySelector('.ovInfo'); if (info) { info.style.display = 'block'; info.classList.add('added-flash'); setTimeout(() => { info.style.display = 'none'; info.classList.remove('added-flash'); },1200); }
  };
- }
+
+
+ };
 
  const basketKey = 'basket';
  function getBasket() { try { return JSON.parse(localStorage.getItem(basketKey) || '[]'); } catch { return []; } }

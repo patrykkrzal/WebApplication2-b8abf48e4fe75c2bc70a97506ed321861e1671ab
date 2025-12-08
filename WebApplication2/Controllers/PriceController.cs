@@ -5,6 +5,7 @@ using System.Linq;
 using Microsoft.Extensions.Caching.Memory;
 using WebApplication2.DTO;
 using Rent.Enums;
+using Rent.Models;
 
 namespace Rent.Controllers
 {
@@ -34,6 +35,39 @@ namespace Rent.Controllers
  else { existing.Price = dto.Price.Value; existing.Note = dto.Note; }
  db.SaveChanges();
 
+ // Update existing physical equipment items to reflect new global price
+ try
+ {
+ var itemsToUpdate = db.Equipment.Where(e => e.Type == et && e.Size == sz).ToList();
+ if (itemsToUpdate.Any())
+ {
+ foreach (var item in itemsToUpdate)
+ {
+ item.Price = dto.Price.Value;
+ }
+ db.SaveChanges();
+ }
+ else
+ {
+ // If there are no physical items for this type/size, create one so availability and management UI show the size
+ var created = new Equipment
+ {
+ Type = et,
+ Size = sz,
+ Is_In_Werehouse = true,
+ Is_Reserved = false,
+ Price = dto.Price.Value
+ };
+ db.Equipment.Add(created);
+ db.SaveChanges();
+ // include created id in response by returning below
+ }
+ }
+ catch
+ {
+ // ignore update failures
+ }
+
  var key = CachePrefix + ((int)et) + "_" + ((int)sz);
  try { cache.Remove(key); } catch { }
 
@@ -51,9 +85,58 @@ namespace Rent.Controllers
  var existing = db.EquipmentPrices.FirstOrDefault(x => x.Type == et && x.Size == sz);
  if (existing == null) return NotFound();
  db.EquipmentPrices.Remove(existing); db.SaveChanges();
+ // remove any placeholder Equipment items that were auto-created during Upsert and are not reserved and in warehouse
+ try
+ {
+ var placeholders = db.Equipment.Where(e => e.Type == et && e.Size == sz && e.Is_In_Werehouse && !e.Is_Reserved).ToList();
+ if (placeholders != null && placeholders.Any())
+ {
+ db.Equipment.RemoveRange(placeholders);
+ db.SaveChanges();
+ }
+ }
+ catch { /* ignore cleanup errors */ }
  var key = CachePrefix + ((int)et) + "_" + ((int)sz);
  try { cache.Remove(key); } catch { }
  return NoContent();
+ }
+
+ // Remove an offering entirely: delete unreserved equipment entries and the price entry.
+ [Authorize(Roles = "Admin,Worker")]
+ [HttpPost("remove-offer")]
+ public IActionResult RemoveOffer([FromBody] PriceUpsertDTO dto)
+ {
+ if (dto == null) return BadRequest("No payload");
+ if (string.IsNullOrWhiteSpace(dto.Type) || string.IsNullOrWhiteSpace(dto.Size)) return BadRequest("Type and Size required");
+ if (!System.Enum.TryParse<EquipmentType>(dto.Type, true, out var et)) return BadRequest("Invalid Type");
+ if (!System.Enum.TryParse<Rent.Enums.Size>(dto.Size, true, out var sz)) return BadRequest("Invalid Size");
+
+ int deletedEquip =0;
+ bool priceDeleted = false;
+ try
+ {
+ var toDelete = db.Equipment.Where(e => e.Type == et && e.Size == sz && !e.Is_Reserved).ToList();
+ if (toDelete.Any())
+ {
+ deletedEquip = toDelete.Count;
+ db.Equipment.RemoveRange(toDelete);
+ db.SaveChanges();
+ }
+
+ var existing = db.EquipmentPrices.FirstOrDefault(x => x.Type == et && x.Size == sz);
+ if (existing != null)
+ {
+ db.EquipmentPrices.Remove(existing);
+ db.SaveChanges();
+ priceDeleted = true;
+ }
+ }
+ catch { /* ignore errors */ }
+
+ var key = CachePrefix + ((int)et) + "_" + ((int)sz);
+ try { cache.Remove(key); } catch { }
+
+ return Ok(new { DeletedEquipment = deletedEquip, PriceDeleted = priceDeleted });
  }
  }
 }

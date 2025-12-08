@@ -68,7 +68,7 @@
  return;
  }
 
- // render defensively
+
  try {
  el.innerHTML = list.map(o => renderOrder(o)).join('');
  } catch (renderErr) {
@@ -89,7 +89,7 @@
  if (status) return status;
 
  const wasReturned = o.Was_It_Returned || o.was_It_Returned;
- // prefer Items, fall back to OrderedItems
+
  const items = o.Items || o.items || o.OrderedItems || o.orderedItems || [];
 
  const anyOutReserved = Array.isArray(items) && items.some(i =>
@@ -103,12 +103,12 @@
  return 'W trakcie realizacji';
  }
 
- // helper maps and normalization to support enum numeric or string shapes
+ // helper map
  const _typeNameMap = {0: 'Snowboard',1: 'Gloves',2: 'Poles',3: 'Helmet',4: 'Skis',5: 'Goggles'};
  const _sizeNameMap = {0: 'Universal',1: 'Small',2: 'Medium',3: 'Large',4: 'Xl'};
  function normalizeType(val) {
  if (val === null || val === undefined) return '';
- // if val is an object with 'Type'/'type' property (nested Equipment), try that
+
  if (typeof val === 'object') {
  if (val.Type !== undefined) return normalizeType(val.Type);
  if (val.type !== undefined) return normalizeType(val.type);
@@ -120,12 +120,12 @@
  const n = parseInt(s,10);
  return _typeNameMap[n] || s;
  }
- // if enum-like string (e.g. 'Skis' or 'skis') return capitalized
+ 
  return s.charAt(0).toUpperCase() + s.slice(1);
  }
  function normalizeSize(val) {
  if (val === null || val === undefined) return '';
- // if val is an object with 'Size'/'size' property (nested Equipment), try that
+
  if (typeof val === 'object') {
  if (val.Size !== undefined) return normalizeSize(val.Size);
  if (val.size !== undefined) return normalizeSize(val.size);
@@ -143,7 +143,7 @@
  function safeText(v) { if (v === null || v === undefined) return ''; return String(v); }
 
  function getUserFullName(o) {
- // Try many shapes for user object and name properties
+
  const user = o.User || o.user || null;
  const parts = [];
  function pushIf(v){ if (v !== null && v !== undefined && String(v).trim()) parts.push(String(v).trim()); }
@@ -151,17 +151,15 @@
  pushIf(user.FirstName || user.firstName || user.First_name || user.first_name);
  pushIf(user.LastName || user.lastName || user.Last_name || user.last_name);
  }
- // fallbacks on order root
  pushIf(o.UserFirstName || o.UserFirst_Name || o.UserFirst_Name);
  pushIf(o.UserLastName || o.UserLast_Name || o.UserLast_Name);
- // fallback to username/email
  if (!parts.length && user) {
  pushIf(user.UserName || user.userName || user.Email || user.email);
  }
  return parts.join(' ').trim();
  }
 
- // render a detailed safe list of ordered items (handles multiple API shapes)
+
  function renderItemsList(o) {
  const items = o.Items || o.items || o.OrderedItems || o.orderedItems || [];
  const grouped = o.ItemsGrouped || o.itemsGrouped || o.ItemsGrouped || [];
@@ -224,7 +222,7 @@
  const basketText = o.Rented_Items ?? o.rented_Items ?? o.rented_items ?? '';
  const showSummary = !basketText;
 
- // Show due date when server provided DueDate and order is not returned (covers worker accept)
+ // Show due date when server provided DueDate and order is not returned 
  const wasReturned = o.Was_It_Returned || o.was_It_Returned;
  const shouldShowDue = dueStr && !wasReturned;
 

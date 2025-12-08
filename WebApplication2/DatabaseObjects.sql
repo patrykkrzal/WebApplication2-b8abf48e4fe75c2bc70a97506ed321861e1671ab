@@ -32,11 +32,10 @@ BEGIN
 END;
 GO
 
--- Usuniêto trigger na OrderedItems (powodowa³ konflikt z EF Core OUTPUT). Logika rezerwacji sprzêtu wykonywana jest w kodzie aplikacji.
 IF OBJECT_ID('dbo.trg_OrderedItems_AfterInsert','TR') IS NOT NULL
  DROP TRIGGER dbo.trg_OrderedItems_AfterInsert;
 GO
--- (Brak ponownego tworzenia triggera)
+
 GO
 
 -- Pricing objects
@@ -45,20 +44,20 @@ CREATE OR ALTER FUNCTION dbo.fnOrderDiscount(@itemsCount int, @days int)
 RETURNS decimal(5,2)
 AS
 BEGIN
- -- For items: each item gives5%, then subtract5%, cap at20%
+ -- gives5%, then subtract5%, cap at20%
  DECLARE @itemsRaw decimal(5,2) = CAST(ISNULL(@itemsCount,0) *0.05 AS decimal(5,2));
  DECLARE @itemsPct decimal(5,2) = @itemsRaw -0.05;
  IF @itemsPct <0.00 SET @itemsPct =0.00;
  IF @itemsPct >0.20 SET @itemsPct =0.20;
 
- -- For days: each day gives5%, then subtract5%, cap at20%
+ --  gives5%, then subtract5%, cap at20%
  DECLARE @daysRaw decimal(5,2) = CAST(ISNULL(@days,0) *0.05 AS decimal(5,2));
  DECLARE @daysPct decimal(5,2) = @daysRaw -0.05;
  IF @daysPct <0.00 SET @daysPct =0.00;
  IF @daysPct >0.20 SET @daysPct =0.20;
 
  DECLARE @total decimal(5,2) = @itemsPct + @daysPct;
- -- overall cap at40% just in case
+ -- overall cap at40% 
  IF @total >0.40 SET @total =0.40;
  RETURN @total;
 END

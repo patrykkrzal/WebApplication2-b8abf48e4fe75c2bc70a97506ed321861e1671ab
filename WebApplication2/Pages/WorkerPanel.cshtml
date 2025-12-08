@@ -6,7 +6,7 @@
 }
 
 <style>
- /* Align worker panel visuals with global site cards */
+
  .order-card {
  background: linear-gradient(180deg, rgba(12,39,66,0.75), rgba(12,39,66,0.55));
  border:2px solid #1e4a7a;
@@ -104,7 +104,7 @@
  async function ensureWorker(){
  const me = await getMe();
  if (hasRole(me, ['Worker','Admin'])) return true;
- // fallback to window.auth if present
+ 
  if (window.auth && typeof window.auth.hasAnyRole === 'function' && window.auth.hasAnyRole('Worker','Admin')) return true;
  return false;
  }
@@ -133,7 +133,7 @@
  user = user.trim() || '—';
 
  const total = Number(o.Price ||0).toFixed(2);
- // build items list defensively
+
  let itemsHtml = '';
  if (Array.isArray(o.ItemsGrouped) && o.ItemsGrouped.length){
  itemsHtml = o.ItemsGrouped.map(g => {
@@ -151,7 +151,7 @@
  return `${t}${s ? ' ' + s : ''} × ${q} — ${p} z³`;
  }).join('<br>');
  } else {
- // fallback to Rented_Items text
+
  const rentedTxt = o.Rented_Items || o.rented_Items || o.rented_items || '';
  itemsHtml = safe(rentedTxt);
  }

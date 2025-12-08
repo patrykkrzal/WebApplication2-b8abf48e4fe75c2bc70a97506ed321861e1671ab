@@ -137,7 +137,7 @@ namespace Rent
                 dataContext.SaveChanges();
             }
 
-            // seed equipment prices if empty
+
             if (!dataContext.Set<Rent.Models.EquipmentPrice>().Any())
             {
                 var prices = new List<Rent.Models.EquipmentPrice>

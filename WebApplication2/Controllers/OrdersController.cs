@@ -9,6 +9,7 @@ using System.Security.Claims;
 using Rent.Enums;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Linq;
 
 namespace Rent.Controllers
 {
@@ -129,13 +130,11 @@ namespace Rent.Controllers
  if (user == null)
  return Unauthorized();
 
- // stock validation
+ // items count fallback
  if (dto.ItemsCount <=0)
  dto.ItemsCount = System.Math.Max(0, dto.ItemsDetail?.Sum(i => i.Quantity) ??0);
-
- var stockCheck = await ValidateStockAsync(dto.ItemsDetail);
- if (!stockCheck.ok)
- return BadRequest(stockCheck.message);
+ // Note: do not block order creation when requested qty exceeds stock.
+ // We still attempt to assign available equipment below; missing items will not be assigned.
 
  // Create order via stored procedure
  using var conn = new SqlConnection(_cfg.GetConnectionString("DefaultConnection"));
@@ -319,12 +318,9 @@ namespace Rent.Controllers
  if (dto.BasePrice <0) dto.BasePrice =0;
  if (dto.ItemsCount <=0) dto.ItemsCount = System.Math.Max(0, dto.ItemsDetail?.Sum(i => i.Quantity) ??0);
 
- // validate stock but return as Error in body so UI can show message
+ // validate stock but return non-blocking warning so UI can display info while allowing checkout
  var stockCheck = await ValidateStockAsync(dto.ItemsDetail);
- if (!stockCheck.ok)
- {
- return Ok(new { Price =0m, DiscountPct =0m, Error = stockCheck.message });
- }
+ var stockWarning = stockCheck.ok ? null : stockCheck.message;
 
  using var conn = new SqlConnection(_cfg.GetConnectionString("DefaultConnection"));
  await conn.OpenAsync();
@@ -371,6 +367,8 @@ namespace Rent.Controllers
  var pct = pctParam.Value == System.DBNull.Value ?0m : (decimal)pctParam.Value;
 
  // Do not perform fallback calculation in application; rely on DB logic
+ if (stockWarning != null)
+ return Ok(new { Price = final, DiscountPct = pct, Warning = stockWarning });
 
  return Ok(new { Price = final, DiscountPct = pct });
  }
@@ -455,6 +453,209 @@ namespace Rent.Controllers
  }
  }
 
+ // ----------------------------
+ // Worker/Admin endpoints
+ // ----------------------------
+
+ [Authorize(Roles = "Admin,Worker")]
+ [HttpGet("pending")]
+ public async Task<IActionResult> GetPending()
+ {
+ var list = await _db.Orders
+ .Include(o => o.User)
+ .Include(o => o.OrderedItems).ThenInclude(oi => oi.Equipment)
+ .Where(o => o.DueDate == null && !o.Was_It_Returned)
+ .OrderByDescending(o => o.OrderDate)
+ .Select(o => new
+ {
+ o.Id,
+ Price = o.Price,
+ BasePrice = o.BasePrice,
+ Days = o.Days,
+ OrderDate = o.OrderDate,
+ DueDate = o.DueDate,
+ User = o.User == null ? null : new { FirstName = o.User.First_name, LastName = o.User.Last_name, Email = o.User.Email },
+ UserFirstName = o.User != null ? o.User.First_name : null,
+ UserLastName = o.User != null ? o.User.Last_name : null,
+ Items = o.OrderedItems.Select(oi => new { Type = oi.Equipment != null ? oi.Equipment.Type.ToString() : (string?)null, Size = oi.Equipment != null ? oi.Equipment.Size.ToString() : (string?)null, Quantity = oi.Quantity, PriceWhenOrdered = oi.PriceWhenOrdered }).ToArray(),
+ ItemsGrouped = o.OrderedItems
+ .GroupBy(oi => new { Type = oi.Equipment.Type.ToString(), Size = oi.Equipment.Size.ToString() })
+ .Select(g => new { Type = g.Key.Type, Size = g.Key.Size, Count = g.Sum(x => x.Quantity) })
+ .ToList()
+ })
+ .ToListAsync();
+
+ return Ok(list);
+ }
+
+ [Authorize(Roles = "Admin,Worker")]
+ [HttpGet("issued")]
+ public async Task<IActionResult> GetIssued()
+ {
+ var list = await _db.Orders
+ .Include(o => o.User)
+ .Include(o => o.OrderedItems).ThenInclude(oi => oi.Equipment)
+ .Where(o => o.DueDate != null && !o.Was_It_Returned)
+ .OrderByDescending(o => o.DueDate)
+ .Select(o => new
+ {
+ o.Id,
+ Price = o.Price,
+ BasePrice = o.BasePrice,
+ Days = o.Days,
+ OrderDate = o.OrderDate,
+ DueDate = o.DueDate,
+ User = o.User == null ? null : new { FirstName = o.User.First_name, LastName = o.User.Last_name, Email = o.User.Email },
+ Items = o.OrderedItems.Select(oi => new { Type = oi.Equipment != null ? oi.Equipment.Type.ToString() : (string?)null, Size = oi.Equipment != null ? oi.Equipment.Size.ToString() : (string?)null, Quantity = oi.Quantity, PriceWhenOrdered = oi.PriceWhenOrdered }).ToArray(),
+ ItemsGrouped = o.OrderedItems
+ .GroupBy(oi => new { Type = oi.Equipment.Type.ToString(), Size = oi.Equipment.Size.ToString() })
+ .Select(g => new { Type = g.Key.Type, Size = g.Key.Size, Count = g.Sum(x => x.Quantity) })
+ .ToList()
+ })
+ .ToListAsync();
+
+ return Ok(list);
+ }
+
+ [Authorize(Roles = "Admin,Worker")]
+ [HttpPost("{id}/accept")]
+ public async Task<IActionResult> Accept(int id)
+ {
+ var ord = await _db.Orders
+ .Include(o => o.OrderedItems)
+ .ThenInclude(oi => oi.Equipment)
+ .FirstOrDefaultAsync(o => o.Id == id);
+ if (ord == null) return NotFound("Order not found");
+ if (ord.DueDate != null) return BadRequest("Order already accepted");
+
+ ord.DueDate = System.DateTime.UtcNow.AddDays(7);
+ ord.Was_It_Returned = false;
+
+ var reserved = new List<int>();
+ foreach (var oi in ord.OrderedItems ?? Enumerable.Empty<OrderedItem>())
+ {
+ if (oi.Equipment != null)
+ {
+ oi.Equipment.Is_In_Werehouse = false;
+ oi.Equipment.Is_Reserved = true;
+ reserved.Add(oi.Equipment.Id);
+ }
+ else if (oi.EquipmentId !=0)
+ {
+ var eq = await _db.Equipment.FindAsync(oi.EquipmentId);
+ if (eq != null)
+ {
+ eq.Is_In_Werehouse = false;
+ eq.Is_Reserved = true;
+ reserved.Add(eq.Id);
+ }
+ }
+ }
+
+ await _db.SaveChangesAsync();
+ _logger.LogInformation("Order {OrderId} accepted. Reserved equipment: {Ids}", id, string.Join(',', reserved));
+ return Ok(new { Message = "Accepted", Reserved = reserved, ReservedCount = reserved.Count });
+ }
+
+ [Authorize(Roles = "Admin,Worker")]
+ [HttpPost("{id}/returned")]
+ public async Task<IActionResult> Returned(int id)
+ {
+ var ord = await _db.Orders
+ .Include(o => o.OrderedItems)
+ .ThenInclude(oi => oi.Equipment)
+ .FirstOrDefaultAsync(o => o.Id == id);
+ if (ord == null) return NotFound("Order not found");
+ if (ord.Was_It_Returned) return BadRequest("Order already marked returned");
+
+ ord.Was_It_Returned = true;
+ ord.DueDate = null;
+
+ var restored = new List<int>();
+ foreach (var oi in ord.OrderedItems ?? Enumerable.Empty<OrderedItem>())
+ {
+ if (oi.Equipment != null)
+ {
+ oi.Equipment.Is_In_Werehouse = true;
+ oi.Equipment.Is_Reserved = false;
+ restored.Add(oi.Equipment.Id);
+ }
+ else if (oi.EquipmentId !=0)
+ {
+ var eq = await _db.Equipment.FindAsync(oi.EquipmentId);
+ if (eq != null)
+ {
+ eq.Is_In_Werehouse = true;
+ eq.Is_Reserved = false;
+ restored.Add(eq.Id);
+ }
+ }
+ }
+
+ await _db.SaveChangesAsync();
+ _logger.LogInformation("Order {OrderId} returned. Restored equipment: {Ids}", id, string.Join(',', restored));
+ return Ok(new { Message = "Returned", Restored = restored, RestoredCount = restored.Count });
+ }
+ [Authorize(Roles = "Admin,Worker")]
+ [HttpDelete("{id}")]
+ public async Task<IActionResult> Delete(int id)
+ {
+ var ord = await _db.Orders.Include(o => o.OrderedItems).FirstOrDefaultAsync(o => o.Id == id);
+ if (ord == null) return NotFound("Order not found");
+ if (ord.OrderedItems != null && ord.OrderedItems.Any())
+ {
+ _db.OrderedItems.RemoveRange(ord.OrderedItems);
+ }
+ _db.Orders.Remove(ord);
+ await _db.SaveChangesAsync();
+ return Ok();
+ }
+
+ [Authorize(Roles = "Admin,Worker")]
+ [HttpGet("by-email")]
+ public async Task<IActionResult> ByEmail([FromQuery] string email)
+ {
+ if (string.IsNullOrWhiteSpace(email)) return BadRequest("Email required");
+ var norm = email.Trim().ToLower();
+ var list = await _db.Orders
+ .Include(o => o.User)
+ .Include(o => o.OrderedItems).ThenInclude(oi => oi.Equipment)
+ .Where(o => (o.User != null && o.User.Email.ToLower() == norm) || o.UserId == email)
+ .OrderByDescending(o => o.OrderDate)
+ .Select(o => new
+ {
+ o.Id,
+ o.OrderDate,
+ o.DueDate,
+ Price = o.Price,
+ User = o.User == null ? null : new { FirstName = o.User.First_name, LastName = o.User.Last_name, Email = o.User.Email },
+ Items = o.OrderedItems.Select(oi => new { Type = oi.Equipment != null ? oi.Equipment.Type.ToString() : (string?)null, Size = oi.Equipment != null ? oi.Equipment.Size.ToString() : (string?)null, Quantity = oi.Quantity }).ToArray()
+ })
+ .ToListAsync();
+ return Ok(list);
+ }
+
+ [Authorize(Roles = "Admin,Worker")]
+ [HttpGet("all")]
+ public async Task<IActionResult> All()
+ {
+ var list = await _db.Orders
+ .Include(o => o.User)
+ .Include(o => o.OrderedItems).ThenInclude(oi => oi.Equipment)
+ .OrderByDescending(o => o.OrderDate)
+ .Select(o => new
+ {
+ o.Id,
+ o.OrderDate,
+ o.DueDate,
+ Price = o.Price,
+ User = o.User == null ? null : new { FirstName = o.User.First_name, LastName = o.User.Last_name, Email = o.User.Email },
+ Items = o.OrderedItems.Select(oi => new { Type = oi.Equipment != null ? oi.Equipment.Type.ToString() : (string?)null, Size = oi.Equipment != null ? oi.Equipment.Size.ToString() : (string?)null, Quantity = oi.Quantity }).ToArray()
+ })
+ .ToListAsync();
+ return Ok(list);
+ }
+
  [Authorize(Roles = "Admin,Worker")]
  [HttpGet("report")]
  public async Task<IActionResult> ReportById([FromQuery] int id)
@@ -478,7 +679,7 @@ namespace Rent.Controllers
  o.Days,
  o.ItemsCount,
  o.Was_It_Returned,
- User = o.User != null ? new { o.User.Id, o.User.UserName, o.User.Email, FirstName = o.User.First_name, LastName = o.User.Last_name } : null,
+ User = o.User != null ? new { o.User.Id, o.User.UserName, o.User.Email, o.User.First_name, o.User.Last_name } : null,
  ItemsGrouped = o.OrderedItems
  .GroupBy(oi => new { Type = oi.Equipment.Type.ToString(), Size = oi.Equipment.Size.ToString() })
  .Select(g => new { Type = g.Key.Type, Size = g.Key.Size, Count = g.Sum(x => x.Quantity) })

@@ -28,7 +28,8 @@
  <div class="block-actions">
  <button class="winter-button" id="placeOrder" data-show-when-auth="true">Złóż zamówienie</button>
  </div>
-</div>
+ <div id="orderMsg" class="msg" style="margin-top:.5rem;"></div>
+ </div>
 
 <!-- Winter-style toast popup -->
 <div id="winterToast" class="winter-toast" style="display:none" aria-live="polite">
@@ -40,11 +41,10 @@
 </div>
 
 <style>
- /* small success style for inline messages */
+
  #stockWarning.success { background: rgba(39,174,96,0.12); border:1px solid rgba(39,174,96,0.25); color: #27ae60; padding: .5rem; border-radius:6px; }
  #stockWarning.warn { background: rgba(241,196,15,0.08); border:1px solid rgba(243,156,18,0.18); color: #f39c12; padding: .5rem; border-radius:6px; }
 
- /* Winter toast styles */
  .winter-toast {
  position: fixed;
  right:1.25rem;
@@ -85,23 +85,43 @@ const priceMap = {
 };
 
 // live lookup filled from API availability (UnitPrice)
-let priceLookup = {}; // priceLookup[type][size] = number
+let priceLookup = {}; 
 
 async function loadPricesFromApi() {
  try {
- const res = await fetch('/api/equipment/availability', { credentials: 'include' });
- if (!res.ok) return;
- const list = await res.json();
+ // Fetch availability and global prices and merge them so we show a price even when no physical items exist
+ const [availRes, pricesRes] = await Promise.all([
+ fetch('/api/equipment/availability', { credentials: 'include' }),
+ fetch('/api/equipment/prices', { credentials: 'include' })
+ ]);
+ 
  priceLookup = {};
+ 
+ if (pricesRes && pricesRes.ok) {
+ const prices = await pricesRes.json();
+ prices.forEach(p => {
+ const t = String(p.Type || '').trim();
+ const s = String(p.Size || '').trim();
+ if (!t) return;
+ priceLookup[t] = priceLookup[t] || {};
+ // use price entry as baseline
+ if (Number.isFinite(Number(p.Price))) priceLookup[t][s] = Number(p.Price);
+ });
+ }
+ 
+ if (availRes && availRes.ok) {
+ const list = await availRes.json();
  list.forEach(p => {
  const t = String(p.Type || p.type || '').trim();
  const s = String(p.Size || p.size || '').trim();
- // prefer UnitPrice
- const unit = Number(p.UnitPrice ?? p.unitPrice ?? p.UnitPrice ?? p.UnitPrice ?? p.UnitPrice);
+ // prefer UnitPrice from availability
+ const unit = Number(p.UnitPrice ?? p.unitPrice ?? p.UnitPrice);
  if (!t) return;
  priceLookup[t] = priceLookup[t] || {};
- priceLookup[t][s] = Number.isFinite(unit) && unit >0 ? unit : (Number.isFinite(p.Price) ? p.Price : (Number.isFinite(p.price) ? p.price : undefined));
+ if (Number.isFinite(unit) && unit >0) priceLookup[t][s] = unit;
+ else if (!priceLookup[t][s] && Number.isFinite(Number(p.Price))) priceLookup[t][s] = Number(p.Price);
  });
+ }
  } catch (e) {
  // ignore
  }
@@ -216,13 +236,13 @@ function renderBasket() {
  const baseBeforeDiscount = baseItemsTotal() * getDays();
  qs('#baseTotal').textContent = baseBeforeDiscount.toFixed(2) + ' zł';
 
- // always run preview to compute totals and availability; preview will enable/disable place button if needed
+ 
  preview();
 }
 
 async function preview() {
  const warn = qs('#stockWarning');
- // don't override existing basket-empty message
+
  if (basket.length ===0) return;
  if (warn) { warn.style.display = 'none'; warn.textContent = ''; }
 
@@ -243,7 +263,7 @@ async function preview() {
 
  const d = await res.json();
  console.debug('preview response', d);
- // normalize discount: API may return fraction (0.2) or percent (20)
+ 
  let pct = Number(d.DiscountPct) ||0;
  if (pct >1) pct = pct /100;
  const final = Number(d.Price) ||0;
@@ -256,6 +276,10 @@ async function preview() {
  if (d.Error) {
  if (placeBtn) placeBtn.disabled = true;
  showWarning(d.Error || 'Problem z dostępnością.');
+ } else if (d.Warning) {
+ // non-blocking warning: show availability note but allow placing order
+ if (placeBtn) placeBtn.disabled = false;
+ showWarning(d.Warning, 'warn');
  } else {
  if (placeBtn) placeBtn.disabled = false;
  // ensure any previous warnings are hidden
@@ -302,7 +326,9 @@ async function placeOrder() {
  if (pct >1) pct = pct /100;
 
  // Show success as styled message
- showToast(`Zamówienie złożone. Cena: ${(Number(d.Price) ||0).toFixed(2)} zł za ${getDays()} dni, zniżka: ${Math.round(pct *100)}%`, 6000);
+ const orderMsg = qs('#orderMsg');
+ if (orderMsg) { orderMsg.className = 'msg success'; orderMsg.textContent = `✅ Zamówienie złożone. Cena: ${(Number(d.Price) ||0).toFixed(2)} zł za ${getDays()} dni.`; }
+ showToast(`Zamówienie złożone. Cena: ${(Number(d.Price) ||0).toFixed(2)} zł za ${getDays()} dni, zniżka: ${Math.round(pct *100)}%`,6000);
 
  // Debug: fetch created order and pending/issued lists to verify backend state
  try {
@@ -325,6 +351,8 @@ async function placeOrder() {
  basket.length =0;
 
  renderBasket();
+ // Refresh page shortly so equipment lists / availability update
+ setTimeout(() => { try { window.location.reload(); } catch { } },1200);
  } catch (e) {
  // errors already displayed via showWarning
  console.error('placeOrder failed', e);

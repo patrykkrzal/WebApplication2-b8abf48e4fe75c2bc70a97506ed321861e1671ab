@@ -3,11 +3,12 @@ using Rent.Data;
 using Rent.DTO;
 using Rent.Models;
 using System.Linq;
-using Microsoft.EntityFrameworkCore; // for Database facade
+using Microsoft.EntityFrameworkCore; 
 using Microsoft.AspNetCore.Authorization;
 using Rent.Enums;
 using Rent.Services;
 using Microsoft.Data.SqlClient;
+using System.Text.Json;
 
 namespace Rent.Controllers
 {
@@ -27,7 +28,7 @@ namespace Rent.Controllers
         [HttpGet]
         public IActionResult GetAllEquipment()
         {
-            // Prevent nested DataReader by materializing equipment first
+            
             var equipments = dbContext.Equipment.AsNoTracking().ToList();
 
             var allEquipment = equipments
@@ -94,35 +95,75 @@ namespace Rent.Controllers
         }
 
         [Authorize(Roles = "Admin,Worker")]
-        [HttpPost("add")] // unique route to avoid Swagger conflicts
-        public IActionResult AddEquipment([FromBody] CreateEquipmentDTO dto)
+        [HttpPost("add")] 
+        public IActionResult AddEquipment([FromBody] JsonElement body)
         {
-            if (dto == null) return BadRequest(new { Message = "Empty payload" });
-            if (!ModelState.IsValid)
+            // Accept raw JSON and validate fields manually to provide friendly error messages
+            if (body.ValueKind == JsonValueKind.Undefined || body.ValueKind == JsonValueKind.Null)
+                return BadRequest(new { Message = "Wybierz poprawny typ i rozmiar." });
+
+            string? typeStr = null;
+            string? sizeStr = null;
+            decimal? price = null;
+            int? qty = null;
+
+            if (body.TryGetProperty("Type", out var pType))
             {
-                var errors = ModelState.Where(kv => kv.Value.Errors.Any())
-                    .ToDictionary(kv => kv.Key, kv => kv.Value.Errors.Select(e => e.ErrorMessage).ToArray());
-                return BadRequest(new { Message = "Invalid payload", Errors = errors });
+                if (pType.ValueKind == JsonValueKind.String) typeStr = pType.GetString();
+                else typeStr = pType.ToString();
+            }
+            if (body.TryGetProperty("Size", out var pSize))
+            {
+                if (pSize.ValueKind == JsonValueKind.String) sizeStr = pSize.GetString();
+                else sizeStr = pSize.ToString();
+            }
+            if (body.TryGetProperty("Price", out var pPrice))
+            {
+                if (pPrice.ValueKind == JsonValueKind.Number && pPrice.TryGetDecimal(out var dp)) price = dp;
+                else
+                {
+                    var s = pPrice.ValueKind == JsonValueKind.String ? pPrice.GetString() : null;
+                    if (!string.IsNullOrWhiteSpace(s) && decimal.TryParse(s, out var dp2)) price = dp2;
+                }
+            }
+            if (body.TryGetProperty("Quantity", out var pQty))
+            {
+                if (pQty.ValueKind == JsonValueKind.Number && pQty.TryGetInt32(out var iq)) qty = iq;
+                else
+                {
+                    var s = pQty.ValueKind == JsonValueKind.String ? pQty.GetString() : null;
+                    if (!string.IsNullOrWhiteSpace(s) && int.TryParse(s, out var iq2)) qty = iq2;
+                }
             }
 
+            // Validate required fields
+            if (string.IsNullOrWhiteSpace(typeStr) || string.IsNullOrWhiteSpace(sizeStr))
+                return BadRequest(new { Message = "Wybierz poprawny typ i rozmiar." });
+
+            if (!System.Enum.TryParse<EquipmentType>(typeStr.Trim(), true, out var et))
+                return BadRequest(new { Message = "Wybierz poprawny typ i rozmiar." });
+
+            if (!System.Enum.TryParse<Size>(sizeStr.Trim(), true, out var sz))
+                return BadRequest(new { Message = "Wybierz poprawny typ i rozmiar." });
+
+            // now we have validated inputs, proceed
             try
             {
-                var price = dto.Price ?? priceResolver.ResolvePrice(dto.Type, dto.Size);
-                var qty = dto.Quantity ??1;
+                var finalPrice = price ?? priceResolver.ResolvePrice(et, sz);
+                var quantity = qty ??1;
 
-                // Try to use stored procedure when connected to SQL Server
                 var created = new List<Equipment>();
                 if (dbContext.Database.IsSqlServer())
                 {
                     var conn = (SqlConnection)dbContext.Database.GetDbConnection();
                     if (conn.State != System.Data.ConnectionState.Open) conn.Open();
 
-                    for (int i =0; i < qty; i++)
+                    for (int i =0; i < quantity; i++)
                     {
                         using var cmd = new SqlCommand("dbo.spAddEquipment", conn) { CommandType = System.Data.CommandType.StoredProcedure };
-                        cmd.Parameters.Add(new SqlParameter("@Type", System.Data.SqlDbType.Int) { Value = (int)dto.Type });
-                        cmd.Parameters.Add(new SqlParameter("@Size", System.Data.SqlDbType.Int) { Value = (int)dto.Size });
-                        cmd.Parameters.Add(new SqlParameter("@Price", System.Data.SqlDbType.Decimal) { Precision =18, Scale =2, Value = price });
+                        cmd.Parameters.Add(new SqlParameter("@Type", System.Data.SqlDbType.Int) { Value = (int)et });
+                        cmd.Parameters.Add(new SqlParameter("@Size", System.Data.SqlDbType.Int) { Value = (int)sz });
+                        cmd.Parameters.Add(new SqlParameter("@Price", System.Data.SqlDbType.Decimal) { Precision =18, Scale =2, Value = finalPrice });
 
                         var obj = cmd.ExecuteScalar();
                         int newId =0;
@@ -131,58 +172,82 @@ namespace Rent.Controllers
                             if (int.TryParse(obj.ToString(), out var parsed)) newId = parsed;
                         }
 
-                        // If we got id back, we can materialize a lightweight object for response
-                        created.Add(new Equipment { Id = newId, Type = dto.Type, Size = dto.Size, Is_In_Werehouse = true, Is_Reserved = false, Price = price });
+                        created.Add(new Equipment { Id = newId, Type = et, Size = sz, Is_In_Werehouse = true, Is_Reserved = false, Price = finalPrice });
                     }
 
-                    return Ok(new { Message = "Equipment added (via SP)", Type = dto.Type.ToString(), Size = dto.Size.ToString(), Price = price, Quantity = qty, CreatedIds = created.Select(c => c.Id).ToArray() });
+                    return Ok(new { Message = "Equipment added (via SP)", Type = et.ToString(), Size = sz.ToString(), Price = finalPrice, Quantity = quantity, CreatedIds = created.Select(c => c.Id).ToArray() });
                 }
 
-                // Fallback: create items directly to avoid dependency on stored proc
-                for (int i =0; i < qty; i++)
+                for (int i =0; i < quantity; i++)
                 {
                     var item = new Equipment
                     {
-                        Type = dto.Type,
-                        Size = dto.Size,
+                        Type = et,
+                        Size = sz,
                         Is_In_Werehouse = true,
                         Is_Reserved = false,
-                        Price = price
+                        Price = finalPrice
                     };
                     dbContext.Equipment.Add(item);
                     created.Add(item);
                 }
                 dbContext.SaveChanges();
 
-                return Ok(new { Message = "Equipment added", Type = dto.Type.ToString(), Size = dto.Size.ToString(), Price = price, Quantity = qty, CreatedIds = created.Select(c => c.Id).ToArray() });
+                return Ok(new { Message = "Equipment added", Type = et.ToString(), Size = sz.ToString(), Price = finalPrice, Quantity = quantity, CreatedIds = created.Select(c => c.Id).ToArray() });
             }
             catch (System.Exception ex)
             {
-                // return minimal error info to client for troubleshooting
                 return StatusCode(500, new { Message = "Failed to add equipment", Error = ex.Message });
             }
         }
 
-        // DELETE one available (not reserved, in warehouse) item for given type+size
+        // DELETE one available 
         [Authorize(Roles = "Admin,Worker")]
         [HttpDelete("delete")]
-        public IActionResult DeleteOne([FromBody] CreateEquipmentDTO dto)
+        public IActionResult DeleteOne([FromBody] JsonElement body)
         {
-            if (dto == null) return BadRequest(new { Message = "Empty payload" });
-            if (!ModelState.IsValid)
+            if (body.ValueKind == JsonValueKind.Undefined || body.ValueKind == JsonValueKind.Null)
+                return BadRequest(new { Message = "Empty payload" });
+
+            string? typeStr = null;
+            string? sizeStr = null;
+            int? qty = null;
+
+            if (body.TryGetProperty("Type", out var pType))
             {
-                var errors = ModelState.Where(kv => kv.Value.Errors.Any())
-                    .ToDictionary(kv => kv.Key, kv => kv.Value.Errors.Select(e => e.ErrorMessage).ToArray());
-                return BadRequest(new { Message = "Invalid payload", Errors = errors });
+                if (pType.ValueKind == JsonValueKind.String) typeStr = pType.GetString();
+                else typeStr = pType.ToString();
             }
+            if (body.TryGetProperty("Size", out var pSize))
+            {
+                if (pSize.ValueKind == JsonValueKind.String) sizeStr = pSize.GetString();
+                else sizeStr = pSize.ToString();
+            }
+            if (body.TryGetProperty("Quantity", out var pQty))
+            {
+                if (pQty.ValueKind == JsonValueKind.Number && pQty.TryGetInt32(out var iq)) qty = iq;
+                else
+                {
+                    var s = pQty.ValueKind == JsonValueKind.String ? pQty.GetString() : null;
+                    if (!string.IsNullOrWhiteSpace(s) && int.TryParse(s, out var iq2)) qty = iq2;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(typeStr) || string.IsNullOrWhiteSpace(sizeStr))
+                return BadRequest(new { Message = "Wybierz poprawny typ i rozmiar." });
+
+            if (!System.Enum.TryParse<EquipmentType>(typeStr.Trim(), true, out var et))
+                return BadRequest(new { Message = "Wybierz poprawny typ i rozmiar." });
+
+            if (!System.Enum.TryParse<Size>(sizeStr.Trim(), true, out var sz))
+                return BadRequest(new { Message = "Wybierz poprawny typ i rozmiar." });
 
             try
             {
-                var qty = dto.Quantity ??1;
-                // Fetch up to 'qty' available items and remove them in one batch
+                var quantity = qty ??1;
                 var toDelete = dbContext.Equipment
-                    .Where(e => e.Type == dto.Type && e.Size == dto.Size && e.Is_In_Werehouse && !e.Is_Reserved)
-                    .Take(qty)
+                    .Where(e => e.Type == et && e.Size == sz && e.Is_In_Werehouse && !e.Is_Reserved)
+                    .Take(quantity)
                     .ToList();
                 int deleted = toDelete.Count;
                 if (deleted >0)
@@ -190,8 +255,8 @@ namespace Rent.Controllers
                     dbContext.Equipment.RemoveRange(toDelete);
                     dbContext.SaveChanges();
                 }
-                var remaining = dbContext.Equipment.Count(e => e.Type == dto.Type && e.Size == dto.Size && e.Is_In_Werehouse && !e.Is_Reserved);
-                return Ok(new { Message = "Deleted equipment items", Type = dto.Type.ToString(), Size = dto.Size.ToString(), Deleted = deleted, Remaining = remaining });
+                var remaining = dbContext.Equipment.Count(e => e.Type == et && e.Size == sz && e.Is_In_Werehouse && !e.Is_Reserved);
+                return Ok(new { Message = "Deleted equipment items", Type = et.ToString(), Size = sz.ToString(), Deleted = deleted, Remaining = remaining });
             }
             catch (System.Exception ex)
             {
