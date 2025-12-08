@@ -12,7 +12,7 @@ using Rent.Data;
 namespace Rent.Migrations
 {
     [DbContext(typeof(DataContext))]
-    [Migration("20251208101644_Init")]
+    [Migration("20251208192910_Init")]
     partial class Init
     {
         /// <inheritdoc />

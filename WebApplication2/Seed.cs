@@ -122,19 +122,6 @@ namespace Rent
 
                 dataContext.RentalInfo.Add(rentalInfo);
                 dataContext.SaveChanges();
-
-                var order1 = new Order()
-                {
-                    Rented_Items = "Skis Small",
-                    OrderDate = DateTime.UtcNow,
-                    Price = 120m,
-                    Date_Of_submission = DateOnly.FromDateTime(DateTime.UtcNow),
-                    Was_It_Returned = false,
-                    User = user1,
-                    RentalInfo = rentalInfo
-                };
-                dataContext.Orders.Add(order1);
-                dataContext.SaveChanges();
             }
 
 

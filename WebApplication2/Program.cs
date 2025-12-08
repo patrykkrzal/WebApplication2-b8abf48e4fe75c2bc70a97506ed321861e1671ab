@@ -195,6 +195,28 @@ public class Program
                 using var cmd = new SqlCommand(batch, conn);
                 await cmd.ExecuteNonQueryAsync();
             }
+            catch (SqlException sqlEx)
+            {
+                // If object already exists (2714), log and continue with next batch instead of failing whole migration.
+                if (sqlEx.Number ==2714)
+                {
+                    var snippet = batch.Length >1000 ? batch.Substring(0,1000) + "\n... (truncated)" : batch;
+                    Console.Error.WriteLine($"Skipping SQL batch #{i +1}/{batches.Length} due to existing object (SQL Error2714): {sqlEx.Message}");
+                    Console.Error.WriteLine("--- Begin skipped batch ---");
+                    Console.Error.WriteLine(snippet);
+                    Console.Error.WriteLine("--- End skipped batch ---");
+                    // continue to next batch
+                    continue;
+                }
+
+                // For other SQL exceptions, provide debug snippet and rethrow
+                var snippet2 = batch.Length >1000 ? batch.Substring(0,1000) + "\n... (truncated)" : batch;
+                Console.Error.WriteLine($"Failed executing SQL batch #{i +1}/{batches.Length}: {sqlEx.Message}");
+                Console.Error.WriteLine("--- Begin failing batch ---");
+                Console.Error.WriteLine(snippet2);
+                Console.Error.WriteLine("--- End failing batch ---");
+                throw;
+            }
             catch (Exception ex)
             {
                 // Log the batch index and a snippet of the failing SQL to help debugging
