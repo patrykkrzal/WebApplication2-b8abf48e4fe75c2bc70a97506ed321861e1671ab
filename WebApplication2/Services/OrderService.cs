@@ -61,7 +61,9 @@ namespace Rent.Services
  if (dto.ItemsCount <=0) dto.ItemsCount = System.Math.Max(0, dto.ItemsDetail?.Sum(i => i.Quantity) ??0);
 
  // create order via stored procedure
- var rentedItems = (dto.Items?.Length ??0) >0 ? string.Join(", ", dto.Items) : "Basket";
+ var rentedItems = (dto.Items != null && dto.Items.Length >0)
+ ? string.Join(", ", dto.Items)
+ : "Basket";
  await _sql.ExecuteCreateOrderAsync(userId, rentedItems, dto.BasePrice, dto.ItemsCount, dto.Days);
 
  // load created order
@@ -83,11 +85,12 @@ namespace Rent.Services
  foreach (var d in dto.ItemsDetail ?? new List<ItemDetailDto>())
  {
  if (d.Quantity <=0) continue;
- if (!System.Enum.TryParse<Enums.EquipmentType>(d.Type?.Trim() ?? "", true, out var type)) continue;
- if (!System.Enum.TryParse<Enums.Size>(d.Size?.Trim() ?? "", true, out var size)) continue;
+ var typeStr = (d.Type ?? "").Trim();
+ var sizeStr = (d.Size ?? "").Trim();
+ if (string.IsNullOrEmpty(typeStr) || string.IsNullOrEmpty(sizeStr)) continue;
 
  var candidates = await _db.Equipment
- .Where(e => e.Is_In_Werehouse && !e.Is_Reserved && e.Type == type && e.Size == size)
+ .Where(e => e.Is_In_Werehouse && !e.Is_Reserved && e.Type.ToLower() == typeStr.ToLower() && e.Size.ToLower() == sizeStr.ToLower())
  .OrderBy(e => e.Id)
  .ToListAsync();
 

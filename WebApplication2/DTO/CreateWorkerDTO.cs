@@ -7,16 +7,16 @@ namespace Rent.DTO
     public class CreateWorkerDTO
     {
         [Required, MaxLength(50)]
-        public string FirstName { get; set; }   
+        public string FirstName { get; set; } = null!;   
 
         [Required, MaxLength(50)]
-        public string LastName { get; set; }    
+        public string LastName { get; set; } = null!;    
 
         [Required, MaxLength(50), EmailAddress]
-        public string Email { get; set; }
+        public string Email { get; set; } = null!;
 
         [Required, MaxLength(9)]
-        public string PhoneNumber { get; set; } 
+        public string PhoneNumber { get; set; } = null!; 
 
         [MaxLength(255)]
         public string? Address { get; set; }
@@ -28,10 +28,10 @@ namespace Rent.DTO
         public string? Working_Days { get; set; }
 
         [Required, MaxLength(30)]
-        public string Job_Title { get; set; }
+        public string Job_Title { get; set; } = null!;
 
         [Required, MinLength(6)]
-        public string Password { get; set; }    // DODANE (bo było brak!)  
+        public string Password { get; set; } = null!;    // DODANE (bo było brak!)  
 
         [Required]
         public int RentalInfoId { get; set; }

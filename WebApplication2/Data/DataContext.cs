@@ -56,7 +56,7 @@ namespace Rent.Data
             });
 
             modelBuilder
-                .HasDbFunction(typeof(DataContext).GetMethod(nameof(FnOrderDiscount), new[] { typeof(int), typeof(int) }))
+                .HasDbFunction(typeof(DataContext).GetMethod(nameof(FnOrderDiscount), new[] { typeof(int), typeof(int) })!)
                 .HasName("fnOrderDiscount")
                 .HasSchema("dbo");
         }

@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-using Rent.Enums;
+// using Rent.Enums;
 
 namespace Rent.Models
 {
@@ -9,10 +9,12 @@ namespace Rent.Models
         public int Id { get; set; }
 
         [Required]
-        public EquipmentType Type { get; set; }
+        [MaxLength(100)]
+        public string Type { get; set; } = string.Empty;
 
         [Required]
-        public Size Size { get; set; }
+        [MaxLength(50)]
+        public string Size { get; set; } = string.Empty;
 
         [Required]
         [Range(0, double.MaxValue)]

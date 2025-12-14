@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Mvc;
 using Rent.Data;
 using Rent.Models;
 using System.Security.Claims;
-using Rent.Enums;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Linq;
@@ -46,18 +45,7 @@ namespace Rent.Controllers
             _orderService = orderService;
         }
 
-        private static bool TryParseEnum<TEnum>(string value, out TEnum parsed)
- where TEnum : struct
- {
-            parsed = default;
-
-            if (string.IsNullOrWhiteSpace(value))
-                return false;
-
-            return System.Enum.TryParse(value.Trim(), ignoreCase: true, out parsed);
- }
-
-        // STOCK VALIDATION
+        // STOCK VALIDATION (string-based Type/Size)
         private async Task<(bool ok, string? message)> ValidateStockAsync(List<ItemDetailDto>? items)
         {
             if (items == null || items.Count ==0)
@@ -68,32 +56,24 @@ namespace Rent.Controllers
  .GroupBy(i => new { t = (i.Type ?? "").Trim(), s = (i.Size ?? "").Trim() })
  .Select(g => new
  {
- g.Key.t,
- g.Key.s,
- qty = g.Sum(x => x.Quantity)
+ Type = g.Key.t,
+ Size = g.Key.s,
+ Qty = g.Sum(x => x.Quantity)
  })
  .ToList();
 
  foreach (var g in grouped)
  {
- if (!TryParseEnum<EquipmentType>(g.t, out var type))
- return (false, $"Nieznany typ: {g.t}");
-
- if (!TryParseEnum<Size>(g.s, out var size))
- return (false, $"Nieznany rozmiar: {g.s}");
+ if (string.IsNullOrEmpty(g.Type) || string.IsNullOrEmpty(g.Size))
+ return (false, $"Nieznany typ/rozmiar: '{g.Type}' / '{g.Size}'");
 
  var available = await _db.Equipment
- .Where(e =>
- e.Is_In_Werehouse &&
- !e.Is_Reserved &&
- e.Type == type &&
- e.Size == size)
+ .Where(e => e.Is_In_Werehouse && !e.Is_Reserved && e.Type.ToLower() == g.Type.ToLower() && e.Size.ToLower() == g.Size.ToLower())
  .CountAsync();
 
- if (g.qty > available)
+ if (g.Qty > available)
  {
- return (false,
- $"Za du¿o sztuk dla {type} {size}. Dostêpne: {available}, ¿¹dane: {g.qty}.");
+ return (false, $"Za du¿o sztuk dla {g.Type} {g.Size}. Dostêpne: {available}, ¿¹dane: {g.Qty}.");
  }
  }
 
@@ -188,11 +168,12 @@ namespace Rent.Controllers
  foreach (var d in dto.ItemsDetail ?? new())
  {
  if (d.Quantity <=0) continue;
- if (!TryParseEnum<EquipmentType>(d.Type, out var type)) continue;
- if (!TryParseEnum<Size>(d.Size, out var size)) continue;
+ var typeStr = (d.Type ?? "").Trim();
+ var sizeStr = (d.Size ?? "").Trim();
+ if (string.IsNullOrEmpty(typeStr) || string.IsNullOrEmpty(sizeStr)) continue;
 
  var candidates = await _db.Equipment
- .Where(e => e.Is_In_Werehouse && !e.Is_Reserved && e.Type == type && e.Size == size)
+ .Where(e => e.Is_In_Werehouse && !e.Is_Reserved && e.Type.ToLower() == typeStr.ToLower() && e.Size.ToLower() == sizeStr.ToLower())
  .OrderBy(e => e.Id)
  .ToListAsync();
 
@@ -422,13 +403,49 @@ namespace Rent.Controllers
  // Reload the order to get the DueDate calculated by the trigger
  var refreshed = await _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
 
- _logger.LogInformation("Order {OrderId} accepted. Reserved equipment: {Ids}", id, string.Join(',', reserved));
+ // determine accepting worker (current user)
+ string? acceptedBy = null;
+ try
+ {
+ var actorId = User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
+ Rent.Models.User? actor = null;
+ if (!string.IsNullOrEmpty(actorId))
+ {
+ actor = await _userManager.FindByIdAsync(actorId);
+ }
+
+ if (actor != null)
+ {
+ // Prefer User.First_name/Last_name from identity user
+ var first = actor.First_name ?? string.Empty;
+ var last = actor.Last_name ?? string.Empty;
+ acceptedBy = (first + " " + last).Trim();
+ }
+
+ // Fallback: if identity user doesn't have names, try matching a Worker by email claim
+ if (string.IsNullOrEmpty(acceptedBy))
+ {
+ var emailClaim = User.FindFirstValue(System.Security.Claims.ClaimTypes.Email) ?? actor?.Email;
+ if (!string.IsNullOrEmpty(emailClaim))
+ {
+ var worker = await _db.Workers.FirstOrDefaultAsync(w => w.Email.ToLower() == emailClaim.ToLower());
+ if (worker != null)
+ {
+ acceptedBy = ((worker.First_name ?? string.Empty) + " " + (worker.Last_name ?? string.Empty)).Trim();
+ }
+ }
+ }
+ }
+ catch { /* ignore */ }
+
+ _logger.LogInformation("Order {OrderId} accepted by {AcceptedBy}. Reserved equipment: {Ids}", id, acceptedBy ?? "(unknown)", string.Join(',', reserved));
 
  // Write an OrderLog entry so admin UI shows acceptance even if trigger didn't run
  try
  {
  var due = refreshed?.DueDate?.ToString() ?? "(none)";
- _db.OrderLogs.Add(new OrderLog { OrderId = id, Message = $"Order accepted. Reserved: {string.Join(',', reserved)}. DueDate: {due}", LogDate = DateTime.UtcNow });
+ var who = !string.IsNullOrEmpty(acceptedBy) ? $" AcceptedBy: {acceptedBy}." : "";
+ _db.OrderLogs.Add(new OrderLog { OrderId = id, Message = $"Order accepted. Reserved: {string.Join(',', reserved)}. DueDate: {due}.{who}", LogDate = DateTime.UtcNow });
  await _db.SaveChangesAsync();
  }
  catch (Exception logEx)
@@ -436,7 +453,7 @@ namespace Rent.Controllers
  _logger.LogWarning(logEx, "Failed to write OrderLog for acceptance of order {OrderId}", id);
  }
 
- return Ok(new { Message = "Accepted", Reserved = reserved, ReservedCount = reserved.Count, DueDate = refreshed?.DueDate });
+ return Ok(new { Message = "Accepted", Reserved = reserved, ReservedCount = reserved.Count, DueDate = refreshed?.DueDate, AcceptedBy = acceptedBy });
  }
  catch (System.Exception ex)
  {

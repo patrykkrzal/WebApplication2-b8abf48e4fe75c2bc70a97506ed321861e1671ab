@@ -6,6 +6,8 @@ using Rent.DTO; // LoginUserDTO
 using System.Security.Claims;
 using System.Threading.Tasks;
 using System.Linq;
+using Microsoft.EntityFrameworkCore;
+using Rent.Data; // DataContext
 
 namespace Rent.Controllers
 {
@@ -15,11 +17,13 @@ namespace Rent.Controllers
     {
         private readonly SignInManager<User> _signInManager;
         private readonly UserManager<User> _userManager;
+        private readonly DataContext _db;
 
-        public AuthController(SignInManager<User> signInManager, UserManager<User> userManager)
+        public AuthController(SignInManager<User> signInManager, UserManager<User> userManager, DataContext db)
         {
             _signInManager = signInManager;
             _userManager = userManager;
+            _db = db;
         }
 
         [HttpPost("login")]
@@ -88,14 +92,32 @@ namespace Rent.Controllers
                 return NotFound();
 
             var roles = await _userManager.GetRolesAsync(user);
+
+            // If user's first/last name are missing, try to find a Worker record with same email
+            string firstName = user.First_name;
+            string lastName = user.Last_name;
+            try
+            {
+                if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
+                {
+                    var worker = await _db.Workers.FirstOrDefaultAsync(w => w.Email.ToLower() == (user.Email ?? "").ToLower());
+                    if (worker != null)
+                    {
+                        if (string.IsNullOrWhiteSpace(firstName)) firstName = worker.First_name;
+                        if (string.IsNullOrWhiteSpace(lastName)) lastName = worker.Last_name;
+                    }
+                }
+            }
+            catch { }
+
             return Ok(new
             {
                 user.Id,
                 user.UserName,
                 user.Email,
                 user.PhoneNumber,
-                user.First_name,
-                user.Last_name,
+                First_name = firstName,
+                Last_name = lastName,
                 user.Login,
                 Roles = roles
             });

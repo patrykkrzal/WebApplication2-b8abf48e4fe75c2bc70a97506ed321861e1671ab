@@ -10,7 +10,7 @@
  <PackageReference Include="NUnit3TestAdapter" Version="4.5.0" />
  <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.0" />
  <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.0" />
- <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.0" />
+ <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.4" />
  </ItemGroup>
  <ItemGroup>
  <ProjectReference Include="..\WebApplication2\Rent.csproj" />

@@ -25,8 +25,12 @@
  <a class="winter-button" href="/UserData.html">Dane użytkownika</a>
  <a class="winter-button" href="/WorkerPanel.html" data-show-for-roles="Worker,Admin">Panel pracownika</a>
  <a class="winter-button" href="/AdminPanel.html" data-show-for-roles="Admin">Panel administratora</a>
- <a class="winter-button" href="/AddOrDeleteItem.html" data-show-for-roles="Worker,Admin">Dodaj / Usuń sprzęt</a>
+ <a class="winter-button" href="/AddOrDeleteItem.html" data-show-for-roles="Admin">Dodaj / Usuń sprzęt</a>
  <a class="winter-button" href="/AppLogs.html" data-show-for-roles="Admin">Logi zamówień</a>
+ <!-- worker info placeholder (hidden unless user is only Worker) -->
+ <div id="workerInfo" style="display:none; margin-top: .5rem; padding:.6rem; border-radius:8px; background: rgba(255,255,255,0.03);">
+ <!-- Filled by JS -->
+ </div>
  </div>
  </details>
  <a class="winter-button" href="/Kontakt.html" data-nav="/Kontakt.html">Kontakt</a>
@@ -46,112 +50,50 @@
 
  <footer></footer>
 
+ <script src="/js/common.js"></script>
  <script>
- (function(){
- const authState = { user: null, roles: [], isAuthenticated: false };
-
- async function getMe(){
- try{
- let res = await fetch('/api/auth/me', { credentials: 'include' });
- if (!res.ok) res = await fetch('/api/users/me', { credentials: 'include' });
- if (!res.ok) return null;
- return await res.json();
- } catch { return null; }
- }
-
- function setUserPanelDisabled(disabled){
- document.querySelectorAll('.user-panel').forEach(el => el.classList.toggle('disabled', disabled));
- }
-
- function applyRoleVisibility(){
- document.querySelectorAll('[data-show-when-auth="true"]').forEach(el => el.style.display = authState.isAuthenticated ? '' : 'none');
- document.querySelectorAll('[data-hide-when-auth="true"]').forEach(el => el.style.display = authState.isAuthenticated ? 'none' : '');
- setUserPanelDisabled(!authState.isAuthenticated);
-
- // Roles
- document.querySelectorAll('[data-show-for-roles]').forEach(el => {
- const rolesAttr = el.getAttribute('data-show-for-roles') || '';
- const allowed = rolesAttr.split(',').map(r => r.trim().toLowerCase()).filter(Boolean);
- if (!allowed.length) { el.style.display = ''; return; }
- // show only when authenticated and has at least one allowed role
- el.style.display = (authState.isAuthenticated && allowed.some(r => authState.roles.includes(r))) ? '' : 'none';
- });
-
- // data-hide-for-roles
- document.querySelectorAll('[data-hide-for-roles]').forEach(el => {
- const rolesAttr = el.getAttribute('data-hide-for-roles') || '';
- const hideFor = rolesAttr.split(',').map(r => r.trim().toLowerCase()).filter(Boolean);
- if (!hideFor.length) return;
- const shouldHide = authState.isAuthenticated && hideFor.some(r => authState.roles.includes(r));
- if (shouldHide) el.style.display = 'none';
- });
- }
-
- async function initAuth(){
- const me = await getMe();
- if (me && (Array.isArray(me.Roles) || Array.isArray(me.roles))){
- authState.user = me;
- authState.roles = (me.Roles || me.roles).map(r => String(r).toLowerCase());
- authState.isAuthenticated = true;
- }
- window.auth = {
- get user(){ return authState.user; },
- get roles(){ return authState.roles; },
- get isAuthenticated(){ return authState.isAuthenticated; },
- hasAnyRole: (...roles) => authState.isAuthenticated && roles.map(r => String(r).toLowerCase()).some(r => authState.roles.includes(r))
- };
- applyRoleVisibility();
-
- // update login button to show logout 
- const loginBtn = document.getElementById('loginBtn');
- if (!loginBtn) return;
- if (authState.isAuthenticated) {
- loginBtn.textContent = 'Wyloguj';
- loginBtn.href = '#';
- loginBtn.onclick = async (e) => {
- e.preventDefault();
- try {
- const res = await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
- if (res.ok) {
- // reload to update UI state
- window.location.reload();
- } else {
- console.warn('Logout failed', res.status);
- window.location.reload();
- }
- } catch (err) {
- console.error('Logout error', err);
- window.location.reload();
- }
- };
- } else {
- loginBtn.textContent = 'Logowanie';
- loginBtn.href = '/Login.html';
- loginBtn.onclick = null;
- }
- }
-
- document.addEventListener('DOMContentLoaded', () => initAuth());
- window.__rent = window.__rent || {}; window.__rent.apiBase = window.__rent.apiBase || '';
-
-
- document.addEventListener('DOMContentLoaded', () => {
+ // navigation helpers reused across pages
+ function setupNavAndAuthHandlers(){
  document.querySelectorAll('.clickable-block, [data-nav]').forEach(el => {
  el.style.cursor = el.style.cursor || 'pointer';
  el.addEventListener('click', (e) => {
- // don't interfere with links
  if (el.tagName.toLowerCase() === 'a' && el.getAttribute('href')) return;
-
  if (el.closest && el.closest('details') && el.tagName.toLowerCase() === 'summary') return;
- const nav = el.dataset.nav || el.getAttribute('data-nav');
- if (!nav) return;
-
- const target = nav.startsWith('/') ? nav : ('/' + nav.replace(/^\/+/,'') );
+ const nav = el.dataset.nav || el.getAttribute('data-nav'); if (!nav) return;
+ const target = nav.startsWith('/') ? nav : ('/' + nav.replace(/^\/+/,''));
  window.location.href = target;
  });
  });
+
+ // ensure login/logout works even if initAuth timing differs
+ const loginBtn = document.getElementById('loginBtn');
+ if (loginBtn) {
+ loginBtn.addEventListener('click', async function(e){
+ // if text is 'Wyloguj' (user logged in) then call logout endpoint
+ try{
+ const txt = (this.textContent || this.innerText || '').trim().toLowerCase();
+ if (txt === 'wyloguj' || txt === 'wyloguj '){
+ e.preventDefault();
+ await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+ // reinitialize auth and refresh UI
+ if (window.__rent && typeof window.__rent.initAuth === 'function') await window.__rent.initAuth();
+ if (window.__rent && typeof window.__rent.applyRoleVisibility === 'function') window.__rent.applyRoleVisibility();
+ // reload to ensure server state and cookies cleared
+ window.location.reload();
+ }
+ }catch(err){ console.error('Logout failed', err); }
  });
- })();
+ }
+
+ // react to auth changes dispatched by common.js
+ document.addEventListener('auth-changed', function(){ try{ if (window.__rent && typeof window.__rent.applyRoleVisibility === 'function') window.__rent.applyRoleVisibility(); }catch(e){} });
+ }
+
+ document.addEventListener('DOMContentLoaded', () => {
+ setupNavAndAuthHandlers();
+ // after common init, ensure auth is initialized
+ if (window.__rent && typeof window.__rent.initAuth === 'function') window.__rent.initAuth();
+ });
  </script>
 
  @RenderSection("Scripts", required: false)

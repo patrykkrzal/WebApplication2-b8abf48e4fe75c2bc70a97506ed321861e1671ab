@@ -28,6 +28,12 @@
  <input type="password" name="Password" required minlength="6" class="form-control" />
  </label>
  </div>
+ <div class="mb-3">
+ <label>
+ Powtórz hasło
+ <input type="password" name="ConfirmPassword" required minlength="6" class="form-control" />
+ </label>
+ </div>
  <div class="row g-3">
  <div class="col-md-6">
  <label>
@@ -115,6 +121,12 @@
  msg.textContent = 'Rejestracja...';
 
  const data = formToObject(e.target);
+ // client-side confirm password check
+ if (!data.Password || !data.ConfirmPassword || data.Password !== data.ConfirmPassword) {
+ msg.className = 'msg error';
+ msg.textContent = 'Hasła muszą być takie same.';
+ return;
+ }
  try {
  await postJson(`${apiBase}/api/Register`, data);
  msg.className = 'msg success';

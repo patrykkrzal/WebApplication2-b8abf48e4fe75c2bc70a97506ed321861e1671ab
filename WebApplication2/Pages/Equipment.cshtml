@@ -17,39 +17,25 @@
 @section Scripts {
 <script>
 (function(){
- const equipmentSlides = [
- { type: 'blank', img: '/Images/snowboard-113784.jpg' },
- { type: 'Snowboard', img: '/Images/snowboard-113784.jpg' },
- { type: 'Gloves', img: '/Images/ski-glove-6933354.jpg' },
- { type: 'Poles', img: '/Images/ski-poles-252250.jpg' },
- { type: 'Helmet', img: '/Images/helmet-5992804.jpg' },
- { type: 'Skis', img: '/Images/ski-999705.jpg' },
- { type: 'Goggles', img: '/Images/googles-2093046.jpg' },
- { type: 'blank', img: '/Images/googles-2093046.jpg' }
- ];
-
+ // dynamic slides will be built from server data
+ let equipmentSlides = [];
  let centerIndex =1;
  let equipmentData = [];
  let groupedTypeSize = {};
- const typeNameMap = {0: 'Snowboard',1: 'Gloves',2: 'Poles',3: 'Helmet',4: 'Skis',5: 'Goggles' };
- const sizeNameMap = {0: 'Universal',1: 'Small',2: 'Medium',3: 'Large',4: 'Xl' };
-
  const apiBase = (window.__rent && window.__rent.apiBase) ? window.__rent.apiBase : '';
 
- function normalizeType(val) {
- const s = (val === undefined || val === null) ? '' : String(val);
- if (s === '') return '';
- if (typeNameMap[s] === undefined && Object.values(typeNameMap).includes(s)) return s;
- const n = parseInt(s);
- return Number.isFinite(n) && typeNameMap[n] ? typeNameMap[n] : s;
- }
- function normalizeSize(val) {
- const s = (val === undefined || val === null) ? '' : String(val);
- if (s === '') return '';
- if (sizeNameMap[s] === undefined && Object.values(sizeNameMap).includes(s)) return s;
- const n = parseInt(s);
- return Number.isFinite(n) && sizeNameMap[n] ? sizeNameMap[n] : s;
- }
+ const defaultImages = {
+ 'Snowboard': '/Images/snowboard-113784.jpg',
+ 'Gloves': '/Images/ski-glove-6933354.jpg',
+ 'Poles': '/Images/ski-poles-252250.jpg',
+ 'Helmet': '/Images/helmet-5992804.jpg',
+ 'Skis': '/Images/ski-999705.jpg',
+ 'Goggles': '/Images/googles-2093046.jpg',
+ 'default': '/Images/snowboard-113784.jpg'
+ };
+
+ function normalizeType(val) { return (val === undefined || val === null) ? '' : String(val); }
+ function normalizeSize(val) { return (val === undefined || val === null) ? '' : String(val); }
 
  function buildSlides() {
  const track = document.getElementById('slideTrack');
@@ -58,13 +44,14 @@
  const slide = document.createElement('div');
  slide.className = 'slide' + (s.type === 'blank' ? ' blank' : '');
  slide.dataset.index = i;
- slide.innerHTML = `<img src='${s.img}' alt='${s.type}'>\n<div class='slide-caption'><span class='cap-type'>${s.type}</span></div>\n<div class='overlay-controls'></div>`;
+ const img = s.img || defaultImages[s.type] || defaultImages['default'];
+ slide.innerHTML = `<img src='${img}' alt='${s.type}'>\n<div class='slide-caption'><span class='cap-type'>${s.type}</span></div>\n<div class='overlay-controls'></div>`;
  track.appendChild(slide);
  });
  }
 
  function clampCenter(i) { return Math.min(Math.max(i,1), equipmentSlides.length -2); }
- function setCenterToMiddle() { const realCount = equipmentSlides.length -2; const mid = Math.floor((realCount -1) /2); centerIndex = clampCenter(mid +1); }
+ function setCenterToMiddle() { const realCount = Math.max(1, equipmentSlides.length -2); const mid = Math.floor((realCount -1) /2); centerIndex = clampCenter(mid +1); }
  function getActiveSlide() { return document.querySelector('.slide.active'); }
 
  function updateSlider() {
@@ -100,7 +87,6 @@
  const sizeOptionsHtml = sizeKeys.map((sizeKey, idx) => {
  const arr = sizeMap[sizeKey];
  const available = arr.filter(x => (x.is_In_Werehouse || x.Is_In_Werehouse) && !(x.is_Reserved || x.Is_Reserved)).length;
-
  const price = arr[0].UnitPrice || arr[0].unitPrice || arr[0].price || arr[0].Price ||0;
  return `<option value='${sizeKey}' data-ids='${arr.map(a => a.id || a.Id).join(',')}' data-available='${available}' data-price='${price}' ${idx ===0 ? 'selected' : ''}>${sizeKey} (dostępne: ${available}) — ${(Number(price) ||0).toFixed(2)} zł</option>`;
  }).join('');
@@ -119,7 +105,6 @@
  const qtyEl = active.querySelector('.ovQty');
  const price = parseFloat((opt.dataset.price || '').replace(',', '.')) ||0;
  if (unitPriceEl) unitPriceEl.textContent = price.toLocaleString('pl-PL', { minimumFractionDigits:2, maximumFractionDigits:2 });
- // Do not enforce availability here; allow user to choose any quantity.
  if (plusBtn) plusBtn.disabled = false;
  if (minusBtn) minusBtn.disabled = false;
  }
@@ -137,14 +122,11 @@
  if (addBtn) addBtn.onclick = () => {
  const sel2 = active.querySelector('.ovSizeSel'); const opt = sel2?.selectedOptions[0]; if (!opt) return;
  const qty = parseInt(qtyEl.textContent) ||1;
- // Do not block adding regardless of availability; include available ids if present
  const ids = (opt.dataset.ids || '').split(',').filter(Boolean).slice(0, qty).map(x => parseInt(x));
  const type = equipmentSlides[centerIndex].type; const size = opt.value;
  addToBasket({ Type: type, Size: size, Price: parseFloat((opt.dataset.price || '').replace(',', '.')) ||0, Quantity: qty, EquipmentIds: ids });
  const info = active.querySelector('.ovInfo'); if (info) { info.style.display = 'block'; info.classList.add('added-flash'); setTimeout(() => { info.style.display = 'none'; info.classList.remove('added-flash'); },1200); }
  };
-
-
  };
 
  const basketKey = 'basket';
@@ -152,41 +134,23 @@
  function saveBasket(b) { localStorage.setItem(basketKey, JSON.stringify(b)); }
  function addToBasket(entry) {
  const b = getBasket();
- // normalize keys
  const type = (entry.Type || entry.type || '').toString();
  const size = (entry.Size || entry.size || '').toString();
  const qty = Number(entry.Quantity ?? entry.quantity ??1) ||1;
  const ids = Array.isArray(entry.EquipmentIds || entry.equipmentIds) ? (entry.EquipmentIds || entry.equipmentIds) : [];
-
- // try to find existing matching item (Type + Size)
- const idx = b.findIndex(i => {
- const it = (i.Type || i.type || '').toString();
- const is = (i.Size || i.size || '').toString();
- return it === type && is === size;
- });
-
+ const idx = b.findIndex(i => { const it = (i.Type || i.type || '').toString(); const is = (i.Size || i.size || '').toString(); return it === type && is === size; });
  if (idx >=0) {
  const existing = b[idx];
- // update quantity
  const existingQty = Number(existing.Quantity ?? existing.quantity ??1) ||1;
  existing.Quantity = existingQty + qty;
- // merge ids uniquely
  const existingIds = Array.isArray(existing.EquipmentIds || existing.equipmentIds) ? (existing.EquipmentIds || existing.equipmentIds) : [];
  const merged = Array.from(new Set([ ...existingIds.map(x=>Number(x)), ...ids.map(x=>Number(x)) ].filter(x => Number.isFinite(x))));
  existing.EquipmentIds = merged;
  b[idx] = existing;
  } else {
- // ensure consistent shape
- const obj = {
- Type: type,
- Size: size,
- Quantity: qty,
- Price: entry.Price ?? entry.price,
- EquipmentIds: ids
- };
+ const obj = { Type: type, Size: size, Quantity: qty, Price: entry.Price ?? entry.price, EquipmentIds: ids };
  b.push(obj);
  }
-
  saveBasket(b);
  }
 
@@ -204,18 +168,39 @@
  }
 
  async function loadEquipment() {
- try { const res = await fetch(`${apiBase}/api/equipment`, { credentials: 'include' }); if (!res.ok) { console.warn('Failed to load equipment, status=', res.status); return; } equipmentData = await res.json(); if (!Array.isArray(equipmentData) || equipmentData.length ===0) { console.info('No equipment data returned'); }
- groupEquipment(); markActive(); }
+ try {
+ const res = await fetch(`${apiBase}/api/equipment`, { credentials: 'include' });
+ if (!res.ok) { console.warn('Failed to load equipment, status=', res.status); return; }
+ equipmentData = await res.json();
+ if (!Array.isArray(equipmentData) || equipmentData.length ===0) { console.info('No equipment data returned'); }
+ groupEquipment();
+ // Build slides dynamically from groupedTypeSize: include blank slides at start/end for UI symmetry
+ equipmentSlides = [];
+ equipmentSlides.push({ type: 'blank', img: defaultImages['default'] });
+ Object.keys(groupedTypeSize).forEach(type => {
+ // try to pick an image: first non-empty ImageUrl in group
+ let img = null;
+ const sizes = Object.keys(groupedTypeSize[type]);
+ for (const s of sizes) {
+ const arr = groupedTypeSize[type][s];
+ const found = arr.find(x => x.ImageUrl && x.ImageUrl.length >0);
+ if (found) { img = found.ImageUrl; break; }
+ }
+ if (!img) img = defaultImages[type] || defaultImages['default'];
+ equipmentSlides.push({ type: type, img: img });
+ });
+ equipmentSlides.push({ type: 'blank', img: defaultImages['default'] });
+
+ buildSlides();
+ setCenterToMiddle();
+ updateSlider();
+ }
  catch (err) { console.error('Error loading equipment', err); }
  }
 
- function initSlider() {
- buildSlides(); setCenterToMiddle(); updateSlider();
- document.getElementById('prevSlide').onclick = () => { centerIndex = clampCenter(centerIndex -1); updateSlider(); };
- document.getElementById('nextSlide').onclick = () => { centerIndex = clampCenter(centerIndex +1); updateSlider(); };
- }
+ function initSlider() { buildSlides(); setCenterToMiddle(); updateSlider(); document.getElementById('prevSlide').onclick = () => { centerIndex = clampCenter(centerIndex -1); updateSlider(); }; document.getElementById('nextSlide').onclick = () => { centerIndex = clampCenter(centerIndex +1); updateSlider(); }; }
 
  document.addEventListener('DOMContentLoaded', () => { initSlider(); loadEquipment(); });
-})();// IIFE
+})();
 </script>
 }

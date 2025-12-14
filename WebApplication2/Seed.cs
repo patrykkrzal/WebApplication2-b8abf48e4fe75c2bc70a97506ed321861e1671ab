@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Rent.Data;
 using Rent.Models;
-using Rent.Enums;
 
 namespace Rent
 {
@@ -93,7 +92,7 @@ namespace Rent
                 rentalInfo.Workers.Add(worker2);
 
                 // Generate items
-                void AddItems(EquipmentType type, Size size, decimal price, int count = 5)
+                void AddItems(string type, string size, decimal price, int count = 5)
                 {
                     for (int i = 0; i < count; i++)
                     {
@@ -109,16 +108,16 @@ namespace Rent
                     }
                 }
 
-                AddItems(EquipmentType.Skis, Size.Small, 120m);
-                AddItems(EquipmentType.Skis, Size.Medium, 130m);
-                AddItems(EquipmentType.Skis, Size.Large, 140m);
-                AddItems(EquipmentType.Helmet, Size.Universal, 35m);
-                AddItems(EquipmentType.Gloves, Size.Small, 15m);
-                AddItems(EquipmentType.Gloves, Size.Medium, 15m);
-                AddItems(EquipmentType.Gloves, Size.Large, 15m);
-                AddItems(EquipmentType.Poles, Size.Medium, 22m);
-                AddItems(EquipmentType.Snowboard, Size.Medium, 160m);
-                AddItems(EquipmentType.Goggles, Size.Universal, 55m);
+                AddItems("Skis", "Small", 120m);
+                AddItems("Skis", "Medium", 130m);
+                AddItems("Skis", "Large", 140m);
+                AddItems("Helmet", "Universal", 35m);
+                AddItems("Gloves", "Small", 15m);
+                AddItems("Gloves", "Medium", 15m);
+                AddItems("Gloves", "Large", 15m);
+                AddItems("Poles", "Medium", 22m);
+                AddItems("Snowboard", "Medium", 160m);
+                AddItems("Goggles", "Universal", 55m);
 
                 dataContext.RentalInfo.Add(rentalInfo);
                 dataContext.SaveChanges();
@@ -129,16 +128,16 @@ namespace Rent
             {
                 var prices = new List<Rent.Models.EquipmentPrice>
                 {
-                    new Rent.Models.EquipmentPrice { Type = Rent.Enums.EquipmentType.Skis, Size = Rent.Enums.Size.Small, Price =120m },
-                    new Rent.Models.EquipmentPrice { Type = Rent.Enums.EquipmentType.Skis, Size = Rent.Enums.Size.Medium, Price =130m },
-                    new Rent.Models.EquipmentPrice { Type = Rent.Enums.EquipmentType.Skis, Size = Rent.Enums.Size.Large, Price =140m },
-                    new Rent.Models.EquipmentPrice { Type = Rent.Enums.EquipmentType.Helmet, Size = Rent.Enums.Size.Universal, Price =35m },
-                    new Rent.Models.EquipmentPrice { Type = Rent.Enums.EquipmentType.Gloves, Size = Rent.Enums.Size.Small, Price =15m },
-                    new Rent.Models.EquipmentPrice { Type = Rent.Enums.EquipmentType.Gloves, Size = Rent.Enums.Size.Medium, Price =15m },
-                    new Rent.Models.EquipmentPrice { Type = Rent.Enums.EquipmentType.Gloves, Size = Rent.Enums.Size.Large, Price =15m },
-                    new Rent.Models.EquipmentPrice { Type = Rent.Enums.EquipmentType.Poles, Size = Rent.Enums.Size.Medium, Price =22m },
-                    new Rent.Models.EquipmentPrice { Type = Rent.Enums.EquipmentType.Snowboard, Size = Rent.Enums.Size.Medium, Price =160m },
-                    new Rent.Models.EquipmentPrice { Type = Rent.Enums.EquipmentType.Goggles, Size = Rent.Enums.Size.Universal, Price =55m }
+                    new Rent.Models.EquipmentPrice { Type = "Skis", Size = "Small", Price =120m },
+                    new Rent.Models.EquipmentPrice { Type = "Skis", Size = "Medium", Price =130m },
+                    new Rent.Models.EquipmentPrice { Type = "Skis", Size = "Large", Price =140m },
+                    new Rent.Models.EquipmentPrice { Type = "Helmet", Size = "Universal", Price =35m },
+                    new Rent.Models.EquipmentPrice { Type = "Gloves", Size = "Small", Price =15m },
+                    new Rent.Models.EquipmentPrice { Type = "Gloves", Size = "Medium", Price =15m },
+                    new Rent.Models.EquipmentPrice { Type = "Gloves", Size = "Large", Price =15m },
+                    new Rent.Models.EquipmentPrice { Type = "Poles", Size = "Medium", Price =22m },
+                    new Rent.Models.EquipmentPrice { Type = "Snowboard", Size = "Medium", Price =160m },
+                    new Rent.Models.EquipmentPrice { Type = "Goggles", Size = "Universal", Price =55m }
                 };
                 dataContext.Set<Rent.Models.EquipmentPrice>().AddRange(prices);
                 dataContext.SaveChanges();

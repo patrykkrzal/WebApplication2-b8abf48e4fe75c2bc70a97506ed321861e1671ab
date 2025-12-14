@@ -337,10 +337,18 @@ async function placeOrder() {
  });
 
  if (!res.ok) {
- const txt = await res.text();
+ // try to parse JSON error payload (e.g. { Message: '...' }) to show friendly message
+ let txt = await res.text();
+ let msg = txt;
+ try {
+ const parsed = JSON.parse(txt);
+ msg = parsed.Message || parsed.message || parsed.Error || parsed.error || txt;
+ } catch (e) {
+ // not JSON, keep raw text
+ }
  // show styled error instead of alert
- showWarning(txt || 'Nie można złożyć zamówienia.');
- throw new Error(txt || 'Nie można złożyć zamówienia');
+ showWarning(msg || 'Nie można złożyć zamówienia.');
+ throw new Error(msg || 'Nie można złożyć zamówienia');
  }
 
  const d = await res.json();
