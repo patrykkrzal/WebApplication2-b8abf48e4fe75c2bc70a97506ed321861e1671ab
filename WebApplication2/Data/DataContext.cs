@@ -16,7 +16,8 @@ namespace Rent.Data
         public DbSet<Order> Orders { get; set; }
         public DbSet<RentalInfo> RentalInfo { get; set; }
         public DbSet<OrderedItem> OrderedItems { get; set; }
-        public DbSet<OrderLog> OrderLogs { get; set; }
+        // OrderLogs managed at DB level; expose DTO mapping for raw SQL queries
+        public DbSet<Rent.DTO.OrderLogDto> OrderLogDtos { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -54,13 +55,8 @@ namespace Rent.Data
             modelBuilder.Entity<OrderedItem>().Property(oi => oi.PriceWhenOrdered).HasPrecision(18, 2);
 
 
-            modelBuilder.Entity<OrderLog>(eb =>
-            {
-                eb.ToTable("OrderLogs");
-                eb.HasKey(l => l.Id);
-                eb.Property(l => l.Message).HasMaxLength(4000).IsRequired();
-                eb.Property(l => l.LogDate).HasDefaultValueSql("SYSUTCDATETIME()");
-            });
+            // OrderLogs table is managed by DB triggers/SQL scripts. We intentionally do not map OrderLog entity to EF here
+            // so that logs are written and maintained at the DB level only.
 
             modelBuilder
                 .HasDbFunction(typeof(DataContext).GetMethod(nameof(FnOrderDiscount), new[] { typeof(int), typeof(int) })!)
@@ -75,6 +71,16 @@ namespace Rent.Data
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
 
 
 
