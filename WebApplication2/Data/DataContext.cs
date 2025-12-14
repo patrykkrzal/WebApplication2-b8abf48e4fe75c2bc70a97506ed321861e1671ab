@@ -34,6 +34,13 @@ namespace Rent.Data
                 .WithMany(e => e.OrderedItems)
                 .HasForeignKey(eo => eo.EquipmentId);
 
+            // configure optional relationship Equipment -> EquipmentPrice
+            modelBuilder.Entity<Equipment>()
+                .HasOne(e => e.EquipmentPrice)
+                .WithMany(p => p.Equipments)
+                .HasForeignKey(e => e.EquipmentPriceId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             modelBuilder.Entity<OrderedItem>()
                 .HasOne(eo => eo.Order)
                 .WithMany(o => o.OrderedItems)
@@ -68,6 +75,10 @@ namespace Rent.Data
         }
     }
 }
+
+
+
+
 
 
 

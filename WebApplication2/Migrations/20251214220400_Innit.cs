@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Rent.Migrations
 {
     /// <inheritdoc />
-    public partial class Init : Migration
+    public partial class Innit : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -138,7 +138,8 @@ namespace Rent.Migrations
                     Type = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     Size = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     Is_In_Werehouse = table.Column<bool>(type: "bit", nullable: false),
-                    Price = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
+                    Price = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: true),
+                    EquipmentPriceId = table.Column<int>(type: "int", nullable: true),
                     Is_Reserved = table.Column<bool>(type: "bit", nullable: false),
                     RentalInfoId = table.Column<int>(type: "int", nullable: true),
                     ImageUrl = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true)
@@ -146,6 +147,12 @@ namespace Rent.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Equipment", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Equipment_EquipmentPrices_EquipmentPriceId",
+                        column: x => x.EquipmentPriceId,
+                        principalTable: "EquipmentPrices",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
                     table.ForeignKey(
                         name: "FK_Equipment_RentalInfo_RentalInfoId",
                         column: x => x.RentalInfoId,
@@ -371,6 +378,11 @@ namespace Rent.Migrations
                 filter: "[NormalizedUserName] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Equipment_EquipmentPriceId",
+                table: "Equipment",
+                column: "EquipmentPriceId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Equipment_RentalInfoId",
                 table: "Equipment",
                 column: "RentalInfoId");
@@ -415,9 +427,6 @@ namespace Rent.Migrations
                 name: "AspNetUserTokens");
 
             migrationBuilder.DropTable(
-                name: "EquipmentPrices");
-
-            migrationBuilder.DropTable(
                 name: "OrderedItems");
 
             migrationBuilder.DropTable(
@@ -434,6 +443,9 @@ namespace Rent.Migrations
 
             migrationBuilder.DropTable(
                 name: "Orders");
+
+            migrationBuilder.DropTable(
+                name: "EquipmentPrices");
 
             migrationBuilder.DropTable(
                 name: "AspNetUsers");

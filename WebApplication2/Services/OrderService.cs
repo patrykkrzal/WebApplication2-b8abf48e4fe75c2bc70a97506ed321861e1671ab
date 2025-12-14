@@ -7,6 +7,7 @@ using Rent.Interfaces;
 using Rent.DTO;
 using Rent.Models;
 using Rent.Data;
+using Rent.Services;
 
 namespace Rent.Services
 {
@@ -15,6 +16,7 @@ namespace Rent.Services
  private readonly DataContext? _db;
  private readonly OrderSqlService? _sql;
  private readonly ILogger<OrderService>? _logger;
+ private readonly IPriceResolver? _priceResolver;
 
  // Parameterless constructor left for unit tests that use new OrderService()
  public OrderService()
@@ -22,11 +24,12 @@ namespace Rent.Services
  }
 
  // DI constructor used by the application
- public OrderService(DataContext db, OrderSqlService sql, ILogger<OrderService> logger)
+ public OrderService(DataContext db, OrderSqlService sql, ILogger<OrderService> logger, IPriceResolver priceResolver)
  {
  _db = db;
  _sql = sql;
  _logger = logger;
+ _priceResolver = priceResolver;
  }
 
  // Existing synchronous method used by tests via IOrderService
@@ -120,7 +123,7 @@ namespace Rent.Services
  OrderId = order.Id,
  EquipmentId = eq.Id,
  Quantity =1,
- PriceWhenOrdered = eq.Price
+ PriceWhenOrdered = (eq.Price ?? (_priceResolver != null ? _priceResolver.ResolvePrice(eq.Type, eq.Size) :0m))
  });
  }
  }

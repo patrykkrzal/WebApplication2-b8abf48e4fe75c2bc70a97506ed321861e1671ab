@@ -163,6 +163,9 @@ namespace Rent.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("EquipmentPriceId")
+                        .HasColumnType("int");
+
                     b.Property<string>("ImageUrl")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
@@ -173,7 +176,7 @@ namespace Rent.Migrations
                     b.Property<bool>("Is_Reserved")
                         .HasColumnType("bit");
 
-                    b.Property<decimal>("Price")
+                    b.Property<decimal?>("Price")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
@@ -191,6 +194,8 @@ namespace Rent.Migrations
                         .HasColumnType("nvarchar(100)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EquipmentPriceId");
 
                     b.HasIndex("RentalInfoId");
 
@@ -568,9 +573,16 @@ namespace Rent.Migrations
 
             modelBuilder.Entity("Rent.Models.Equipment", b =>
                 {
+                    b.HasOne("Rent.Models.EquipmentPrice", "EquipmentPrice")
+                        .WithMany("Equipments")
+                        .HasForeignKey("EquipmentPriceId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Rent.Models.RentalInfo", "RentalInfo")
                         .WithMany("Equipment")
                         .HasForeignKey("RentalInfoId");
+
+                    b.Navigation("EquipmentPrice");
 
                     b.Navigation("RentalInfo");
                 });
@@ -632,6 +644,11 @@ namespace Rent.Migrations
             modelBuilder.Entity("Rent.Models.Equipment", b =>
                 {
                     b.Navigation("OrderedItems");
+                });
+
+            modelBuilder.Entity("Rent.Models.EquipmentPrice", b =>
+                {
+                    b.Navigation("Equipments");
                 });
 
             modelBuilder.Entity("Rent.Models.Order", b =>

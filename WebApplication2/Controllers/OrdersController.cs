@@ -117,7 +117,7 @@ namespace Rent.Controllers
  }
 
  var rentedItems = (dto.Items?.Length ??0) >0
- ? string.Join(", ", dto.Items)
+ ? string.Join(", ", dto.Items ?? new string[0])
  : "Basket";
 
  try
@@ -203,7 +203,7 @@ namespace Rent.Controllers
  OrderId = order.Id,
  EquipmentId = eq.Id,
  Quantity =1,
- PriceWhenOrdered = eq.Price
+ PriceWhenOrdered = eq.Price ??0m
  });
  }
  }

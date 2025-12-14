@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-// using Rent.Enums;
+using System.Collections.Generic;
 
 namespace Rent.Models
 {
@@ -21,5 +21,8 @@ namespace Rent.Models
         public decimal Price { get; set; }
 
         public string? Note { get; set; }
+
+        // Navigation: all Equipment items that reference this price entry
+        public ICollection<Equipment> Equipments { get; set; } = new List<Equipment>();
     }
 }

@@ -19,8 +19,12 @@ namespace Rent.Models
         [Required]
         public bool Is_In_Werehouse { get; set; }
 
-        [Required]
-        public decimal Price { get; set; }
+        // Price is now optional on individual equipment. Canonical price is in EquipmentPrice.
+        public decimal? Price { get; set; }
+
+        // Foreign key to canonical EquipmentPrice (optional)
+        public int? EquipmentPriceId { get; set; }
+        public EquipmentPrice? EquipmentPrice { get; set; }
 
         public bool Is_Reserved { get; set; }
 
