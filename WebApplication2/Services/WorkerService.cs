@@ -8,6 +8,7 @@ namespace Rent.Services
 {
  public class WorkerService : IWorkerService
  {
+ // simple worker svc
  private readonly List<Worker> workers = new List<Worker>();
  private int idCounter =1;
  public Worker RegisterWorker(CreateWorkerDTO dto)

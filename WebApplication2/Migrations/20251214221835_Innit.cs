@@ -42,18 +42,18 @@ namespace Rent.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "OrderLogs",
+                name: "OrderLogDtos",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     OrderId = table.Column<int>(type: "int", nullable: false),
-                    Message = table.Column<string>(type: "nvarchar(4000)", maxLength: 4000, nullable: false),
-                    LogDate = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "SYSUTCDATETIME()")
+                    Message = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    LogDate = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_OrderLogs", x => x.Id);
+                    table.PrimaryKey("PK_OrderLogDtos", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -430,7 +430,7 @@ namespace Rent.Migrations
                 name: "OrderedItems");
 
             migrationBuilder.DropTable(
-                name: "OrderLogs");
+                name: "OrderLogDtos");
 
             migrationBuilder.DropTable(
                 name: "Workers");

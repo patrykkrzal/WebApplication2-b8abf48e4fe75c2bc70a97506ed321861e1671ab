@@ -20,6 +20,7 @@ using Serilog.Formatting.Json;
 using Serilog.Sinks.MSSqlServer;
 using System.Collections.ObjectModel;
 using System.Security.Cryptography;
+using Rent.Interfaces;
 
 public class Program
 {
@@ -97,9 +98,9 @@ public class Program
 
         builder.Services.AddMemoryCache();
         builder.Services.AddScoped<IPriceResolver, EfPriceResolver>();
-        builder.Services.AddScoped<OrderSqlService>();
-        builder.Services.AddScoped<EquipmentStateService>();
-        builder.Services.AddScoped<OrderService>();
+        builder.Services.AddScoped<IOrderSqlService, OrderSqlService>();
+        builder.Services.AddScoped<IEquipmentStateService, EquipmentStateService>();
+        builder.Services.AddScoped<IOrderService, OrderService>();
 
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen(c =>
@@ -170,7 +171,8 @@ public class Program
             if (sqlPath != null)
             {
                 var script = await File.ReadAllTextAsync(sqlPath);
-                await ExecuteSqlScriptBatchedAsync(builder.Configuration.GetConnectionString("DefaultConnection"), script);
+                var connStrLocal = builder.Configuration.GetConnectionString("DefaultConnection") ?? string.Empty;
+                await ExecuteSqlScriptBatchedAsync(connStrLocal, script);
                 Console.WriteLine($"Executed DatabaseObjects.sql from '{sqlPath}'.");
 
                 var seeder = scope.ServiceProvider.GetRequiredService<Seed>();

@@ -35,7 +35,7 @@ namespace Rent.Controllers
  else { existing.Price = dto.Price.Value; existing.Note = dto.Note; }
  db.SaveChanges();
 
- // Update existing physical equipment items to reflect new global price
+ // sync physical items
  try
  {
  var itemsToUpdate = db.Equipment.Where(e => e.Type.ToLower() == typeNorm.ToLower() && e.Size.ToLower() == sizeNorm.ToLower()).ToList();
@@ -102,7 +102,7 @@ namespace Rent.Controllers
  return NoContent();
  }
 
- // Remove an offering entirely: delete unreserved equipment entries and the price entry.
+ // remove offer
  [Authorize(Roles = "Admin,Worker")]
  [HttpPost("remove-offer")]
  public IActionResult RemoveOffer([FromBody] PriceUpsertDTO dto)

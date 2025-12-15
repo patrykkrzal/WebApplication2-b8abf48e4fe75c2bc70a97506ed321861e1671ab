@@ -1,4 +1,4 @@
-namespace Rent.Services
+namespace Rent.Interfaces
 {
  public interface IPriceResolver
  {

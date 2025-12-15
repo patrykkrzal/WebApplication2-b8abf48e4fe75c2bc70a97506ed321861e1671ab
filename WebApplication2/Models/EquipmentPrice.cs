@@ -22,7 +22,7 @@ namespace Rent.Models
 
         public string? Note { get; set; }
 
-        // Navigation: all Equipment items that reference this price entry
+        // Nav property
         public ICollection<Equipment> Equipments { get; set; } = new List<Equipment>();
     }
 }

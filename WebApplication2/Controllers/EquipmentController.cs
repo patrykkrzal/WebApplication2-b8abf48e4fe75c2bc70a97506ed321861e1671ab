@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Http;
 using System.IO;
 using System;
 using System.Collections.Generic;
+using Rent.Interfaces;
 
 namespace Rent.Controllers
 {
@@ -186,7 +187,7 @@ namespace Rent.Controllers
  }
  catch (SqlException sqlEx)
  {
- // If SP signature doesn't match, fall back to EF and mark spFailed
+ // SP fallback
  spFailed = true;
  _ = sqlEx; // keep variable available for debugging if needed
  // create via EF instead of SP for this item

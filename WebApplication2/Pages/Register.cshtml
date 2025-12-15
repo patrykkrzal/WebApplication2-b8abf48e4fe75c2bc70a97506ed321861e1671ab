@@ -5,138 +5,143 @@
 
 <style>
 
-.form-box { background: transparent !important; box-shadow: none !important; padding:0 !important; margin-top:12px !important; }
+    .form-box {
+        background: transparent !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin-top: 12px !important;
+    }
 </style>
 
 <h1 class="winter-title">📝 Rejestracja użytkownika</h1>
 <form id="registerForm" class="form-box" novalidate>
- <div class="mb-3">
- <label>
- Login (UserName)
- <input type="text" name="UserName" required class="form-control" />
- </label>
- </div>
- <div class="mb-3">
- <label>
- Email
- <input type="email" name="Email" required class="form-control" />
- </label>
- </div>
- <div class="mb-3">
- <label>
- Hasło
- <input type="password" name="Password" required minlength="6" class="form-control" />
- </label>
- </div>
- <div class="mb-3">
- <label>
- Powtórz hasło
- <input type="password" name="ConfirmPassword" required minlength="6" class="form-control" />
- </label>
- </div>
- <div class="row g-3">
- <div class="col-md-6">
- <label>
- Imię
- <input type="text" name="FirstName" required class="form-control" />
- </label>
- </div>
- <div class="col-md-6">
- <label>
- Nazwisko
- <input type="text" name="LastName" required class="form-control" />
- </label>
- </div>
- </div>
- <div class="mb-3 mt-3">
- <label>
- Telefon (ContactNumber)
- <input type="text" name="ContactNumber" required class="form-control" />
- </label>
- </div>
+    <div class="mb-3">
+        <label>
+            Login (UserName)
+            <input type="text" name="UserName" required class="form-control" />
+        </label>
+    </div>
+    <div class="mb-3">
+        <label>
+            Email
+            <input type="email" name="Email" required class="form-control" />
+        </label>
+    </div>
+    <div class="mb-3">
+        <label>
+            Hasło
+            <input type="password" name="Password" required minlength="6" class="form-control" />
+        </label>
+    </div>
+    <div class="mb-3">
+        <label>
+            Powtórz hasło
+            <input type="password" name="ConfirmPassword" required minlength="6" class="form-control" />
+        </label>
+    </div>
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label>
+                Imię
+                <input type="text" name="FirstName" required class="form-control" />
+            </label>
+        </div>
+        <div class="col-md-6">
+            <label>
+                Nazwisko
+                <input type="text" name="LastName" required class="form-control" />
+            </label>
+        </div>
+    </div>
+    <div class="mb-3 mt-3">
+        <label>
+            Telefon (ContactNumber)
+            <input type="text" name="ContactNumber" required class="form-control" />
+        </label>
+    </div>
 
- <button type="submit" class="submit-btn">Zarejestruj</button>
- <div id="registerMsg" class="msg"></div>
- <div class="alt-link" style="margin-top:.5rem;">Masz już konto? <a href="/Login.html">Zaloguj się</a></div>
+    <button type="submit" class="submit-btn">Zarejestruj</button>
+    <div id="registerMsg" class="msg"></div>
+    <div class="alt-link" style="margin-top:.5rem;">Masz już konto? <a href="/Login.html">Zaloguj się</a></div>
 </form>
 
 @section Scripts {
-<script>
-(function(){
- const apiBase = (window.__rent && window.__rent.apiBase) ? window.__rent.apiBase : '';
+    <script>
+        (function () {
+            const apiBase = (window.__rent && window.__rent.apiBase) ? window.__rent.apiBase : '';
 
- function formToObject(form) {
- const obj = {};
- new FormData(form).forEach((v, k) => obj[k] = v);
- Object.keys(obj).forEach(k => { if (obj[k] === '') delete obj[k]; });
- return obj;
- }
+            function formToObject(form) {
+                const obj = {};
+                new FormData(form).forEach((v, k) => obj[k] = v);
+                Object.keys(obj).forEach(k => { if (obj[k] === '') delete obj[k]; });
+                return obj;
+            }
 
- async function postJson(url, body) {
- const res = await fetch(url, {
- method: 'POST',
- headers: { 'Content-Type': 'application/json' },
- body: JSON.stringify(body),
- credentials: 'include'
- });
+            async function postJson(url, body) {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                    credentials: 'include'
+                });
 
- const raw = await res.text();
- let parsed;
- try { parsed = JSON.parse(raw); } catch { parsed = raw; }
+                const raw = await res.text();
+                let parsed;
+                try { parsed = JSON.parse(raw); } catch { parsed = raw; }
 
- if (!res.ok) {
- // Try to extract ModelState-style errors
- if (parsed && typeof parsed === 'object') {
- // errors may be in parsed.errors (dictionary) or parsed.Errors (array) or parsed.Message
- if (parsed.errors) {
- const dict = parsed.errors;
- const msgs = [];
- Object.keys(dict).forEach(k => {
- const v = dict[k];
- if (Array.isArray(v)) msgs.push(...v);
- else if (typeof v === 'string') msgs.push(v);
- });
- throw new Error(msgs.join('; ') || 'Błąd walidacji danych.');
- }
- if (parsed.Errors && Array.isArray(parsed.Errors)) {
- throw new Error(parsed.Errors.join('; '));
- }
- if (parsed.Message || parsed.message) {
- throw new Error(parsed.Message || parsed.message);
- }
- }
- 
- // fallback: stringify
- const txt = (typeof parsed === 'string') ? parsed : JSON.stringify(parsed);
- throw new Error(txt || 'Błąd serwera');
- }
+                if (!res.ok) {
+                    // Try to extract ModelState-style errors
+                    if (parsed && typeof parsed === 'object') {
+                        // errors may be in parsed.errors (dictionary) or parsed.Errors (array) or parsed.Message
+                        if (parsed.errors) {
+                            const dict = parsed.errors;
+                            const msgs = [];
+                            Object.keys(dict).forEach(k => {
+                                const v = dict[k];
+                                if (Array.isArray(v)) msgs.push(...v);
+                                else if (typeof v === 'string') msgs.push(v);
+                            });
+                            throw new Error(msgs.join('; ') || 'Błąd walidacji danych.');
+                        }
+                        if (parsed.Errors && Array.isArray(parsed.Errors)) {
+                            throw new Error(parsed.Errors.join('; '));
+                        }
+                        if (parsed.Message || parsed.message) {
+                            throw new Error(parsed.Message || parsed.message);
+                        }
+                    }
 
- return parsed;
- }
+                    // fallback: stringify
+                    const txt = (typeof parsed === 'string') ? parsed : JSON.stringify(parsed);
+                    throw new Error(txt || 'Błąd serwera');
+                }
 
- document.getElementById('registerForm').addEventListener('submit', async e => {
- e.preventDefault();
- const msg = document.getElementById('registerMsg');
- msg.className = 'msg';
- msg.textContent = 'Rejestracja...';
+                return parsed;
+            }
 
- const data = formToObject(e.target);
- // client-side confirm password check
- if (!data.Password || !data.ConfirmPassword || data.Password !== data.ConfirmPassword) {
- msg.className = 'msg error';
- msg.textContent = 'Hasła muszą być takie same.';
- return;
- }
- try {
- await postJson(`${apiBase}/api/Register`, data);
- msg.className = 'msg success';
- msg.textContent = 'Rejestracja pomyślna';
- e.target.reset();
- } catch (err) {
- msg.className = 'msg error';
- msg.textContent = 'Błąd: ' + (err.message || err);
- }
- });
-})();
-</script>
+            document.getElementById('registerForm').addEventListener('submit', async e => {
+                e.preventDefault();
+                const msg = document.getElementById('registerMsg');
+                msg.className = 'msg';
+                msg.textContent = 'Rejestracja...';
+
+                const data = formToObject(e.target);
+                // client-side confirm password check
+                if (!data.Password || !data.ConfirmPassword || data.Password !== data.ConfirmPassword) {
+                    msg.className = 'msg error';
+                    msg.textContent = 'Hasła muszą być takie same.';
+                    return;
+                }
+                try {
+                    await postJson(`${apiBase}/api/Register`, data);
+                    msg.className = 'msg success';
+                    msg.textContent = 'Rejestracja pomyślna';
+                    e.target.reset();
+                } catch (err) {
+                    msg.className = 'msg error';
+                    msg.textContent = 'Błąd: ' + (err.message || err);
+                }
+            });
+        })();
+    </script>
 }

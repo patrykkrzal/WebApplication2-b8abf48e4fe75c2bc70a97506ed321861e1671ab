@@ -19,10 +19,11 @@ namespace Rent.Controllers
  [HttpGet]
  public async Task<IActionResult> Get([FromQuery] int? orderId, [FromQuery] DateTime? dateFrom, [FromQuery] DateTime? dateTo, [FromQuery] string? q, [FromQuery] int? take)
  {
- // default take to200, cap at2000
+ // limit
  var limit = (take.HasValue && take.Value >0) ? Math.Min(take.Value,2000) :200;
 
- // OrderLogs table is managed by DB (triggers/SQL). Query using raw SQL to avoid relying on EF mapping.
+ // raw SQL logs
+ // OrderLogs table is managed by DB
  var baseQuery = "SELECT Id, OrderId, Message, LogDate FROM dbo.OrderLogs";
  var whereClauses = new System.Collections.Generic.List<string>();
  var parameters = new System.Collections.Generic.List<object>();
@@ -49,7 +50,8 @@ namespace Rent.Controllers
  }
 
  var whereSql = whereClauses.Count >0 ? (" WHERE " + string.Join(" AND ", whereClauses)) : string.Empty;
- var sql = baseQuery + whereSql + " ORDER BY LogDate DESC OFFSET0 ROWS FETCH NEXT " + limit + " ROWS ONLY";
+ // pagination — ensure proper spacing in OFFSET clause
+ var sql = baseQuery + whereSql + " ORDER BY LogDate DESC OFFSET 0 ROWS FETCH NEXT " + limit + " ROWS ONLY";
  var list = await _db.Set<Rent.DTO.OrderLogDto>().FromSqlRaw(sql, parameters.ToArray()).ToListAsync();
 
  return Ok(list);

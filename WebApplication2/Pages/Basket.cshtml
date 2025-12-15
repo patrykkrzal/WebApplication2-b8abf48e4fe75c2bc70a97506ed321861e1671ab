@@ -5,439 +5,497 @@
 <h1 class="winter-title">🧺 Koszyk</h1>
 <div id="basketItems" class="contact-info"></div>
 <div class="block-actions">
- <button class="winter-button" id="clearBasket">Wyczyść koszyk</button>
+    <button class="winter-button" id="clearBasket">Wyczyść koszyk</button>
 </div>
 <div class="form-box">
- <label>
- Liczba dni wypożyczenia
- <input type="number" id="rentDays" min="1" value="1" />
- </label>
- <div class="contact-item">
- <strong>Suma podstawowa</strong>
- <div class="contact-value" id="baseTotal">0 zł</div>
- </div>
- <div class="contact-item">
- <strong>Łączna zniżka</strong>
- <div class="contact-value" id="discountPct">0%</div>
- </div>
- <div class="contact-item">
- <strong>Suma z dniami i zniżką</strong>
- <div class="contact-value" id="finalTotal">0 zł</div>
- </div>
- <div class="contact-item warn" id="stockWarning" style="display:none"></div>
- <div class="block-actions">
- <button class="winter-button" id="placeOrder" data-show-when-auth="true">Złóż zamówienie</button>
- </div>
- <div id="orderMsg" class="msg" style="margin-top:.5rem;"></div>
- </div>
+    <label>
+        Liczba dni wypożyczenia
+        <input type="number" id="rentDays" min="1" value="1" />
+    </label>
+    <div class="contact-item">
+        <strong>Suma podstawowa</strong>
+        <div class="contact-value" id="baseTotal">0 zł</div>
+    </div>
+    <div class="contact-item">
+        <strong>Łączna zniżka</strong>
+        <div class="contact-value" id="discountPct">0%</div>
+    </div>
+    <div class="contact-item">
+        <strong>Suma z dniami i zniżką</strong>
+        <div class="contact-value" id="finalTotal">0 zł</div>
+    </div>
+    <div class="contact-item warn" id="stockWarning" style="display:none"></div>
+    <div class="block-actions">
+        <button class="winter-button" id="placeOrder" data-show-when-auth="true">Złóż zamówienie</button>
+    </div>
+    <div id="orderMsg" class="msg" style="margin-top:.5rem;"></div>
+</div>
 
 <!-- Winter-style toast popup -->
 <div id="winterToast" class="winter-toast" style="display:none" aria-live="polite">
- <div class="toast-content">
- <span class="toast-emoji">❄️</span>
- <div class="toast-message"></div>
- <button class="toast-close" aria-label="Zamknij">×</button>
- </div>
+    <div class="toast-content">
+        <span class="toast-emoji">❄️</span>
+        <div class="toast-message"></div>
+        <button class="toast-close" aria-label="Zamknij">×</button>
+    </div>
 </div>
 
 <style>
 
- #stockWarning.success { background: rgba(39,174,96,0.12); border:1px solid rgba(39,174,96,0.25); color: #27ae60; padding: .5rem; border-radius:6px; }
- #stockWarning.warn { background: rgba(241,196,15,0.08); border:1px solid rgba(243,156,18,0.18); color: #f39c12; padding: .5rem; border-radius:6px; }
+    #stockWarning.success {
+        background: rgba(39,174,96,0.12);
+        border: 1px solid rgba(39,174,96,0.25);
+        color: #27ae60;
+        padding: .5rem;
+        border-radius: 6px;
+    }
 
- .winter-toast {
- position: fixed;
- right:1.25rem;
- bottom:1.25rem;
- z-index:9999;
- backdrop-filter: blur(4px);
- }
- .winter-toast .toast-content {
- display:flex; align-items:center; gap:.6rem;
- background: linear-gradient(145deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
- border:1px solid rgba(255,255,255,0.12);
- color: #fff;
- padding: .6rem .9rem;
- border-radius:12px;
- box-shadow:06px 18px rgba(0,0,0,0.45);
- min-width:260px;
- max-width:420px;
- }
- .winter-toast .toast-emoji { font-size:1.35rem; }
- .winter-toast .toast-message { flex:1; font-weight:600; font-size:0.95rem; }
- .winter-toast .toast-close { background:transparent; border:0; color:rgba(255,255,255,0.8); font-size:1.05rem; cursor:pointer; }
- .winter-toast.show { animation: toast-in .28s ease-out forwards; }
- .winter-toast.hide { animation: toast-out .28s ease-in forwards; }
- @@keyframes toast-in { from { transform: translateY(8px) scale(.98); opacity:0 } to { transform: translateY(0) scale(1); opacity:1 } }
- @@keyframes toast-out { from { transform: translateY(0) scale(1); opacity:1 } to { transform: translateY(8px) scale(.98); opacity:0 } }
+    #stockWarning.warn {
+        background: rgba(241,196,15,0.08);
+        border: 1px solid rgba(243,156,18,0.18);
+        color: #f39c12;
+        padding: .5rem;
+        border-radius: 6px;
+    }
+
+    .winter-toast {
+        position: fixed;
+        right: 1.25rem;
+        bottom: 1.25rem;
+        z-index: 9999;
+        backdrop-filter: blur(4px);
+    }
+
+        .winter-toast .toast-content {
+            display: flex;
+            align-items: center;
+            gap: .6rem;
+            background: linear-gradient(145deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+            border: 1px solid rgba(255,255,255,0.12);
+            color: #fff;
+            padding: .6rem .9rem;
+            border-radius: 12px;
+            box-shadow: 06px 18px rgba(0,0,0,0.45);
+            min-width: 260px;
+            max-width: 420px;
+        }
+
+        .winter-toast .toast-emoji {
+            font-size: 1.35rem;
+        }
+
+        .winter-toast .toast-message {
+            flex: 1;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .winter-toast .toast-close {
+            background: transparent;
+            border: 0;
+            color: rgba(255,255,255,0.8);
+            font-size: 1.05rem;
+            cursor: pointer;
+        }
+
+        .winter-toast.show {
+            animation: toast-in .28s ease-out forwards;
+        }
+
+        .winter-toast.hide {
+            animation: toast-out .28s ease-in forwards;
+        }
+
+    @@keyframes toast-in {
+        from {
+            transform: translateY(8px) scale(.98);
+            opacity: 0
+        }
+
+        to {
+            transform: translateY(0) scale(1);
+            opacity: 1
+        }
+    }
+
+    @@keyframes toast-out {
+        from {
+            transform: translateY(0) scale(1);
+            opacity: 1
+        }
+
+        to {
+            transform: translateY(8px) scale(.98);
+            opacity: 0
+        }
+    }
 </style>
 
 @section Scripts {
-<script>
-// Cennik fallback (gdy brak Price w koszyku)
-const priceMap = {
- Skis: { Small:120, Medium:130, Large:140 },
- Helmet: { Any:35, Universal:35 },
- Gloves: { Small:15, Medium:15, Large:15 },
- Poles: { Any:22 },
- Snowboard: { Any:160 },
- Goggles: { Any:55, Universal:55 }
-};
+    <script>
+        // Cennik fallback (gdy brak Price w koszyku)
+        const priceMap = {
+            Skis: { Small: 120, Medium: 130, Large: 140 },
+            Helmet: { Any: 35, Universal: 35 },
+            Gloves: { Small: 15, Medium: 15, Large: 15 },
+            Poles: { Any: 22 },
+            Snowboard: { Any: 160 },
+            Goggles: { Any: 55, Universal: 55 }
+        };
 
-// live lookup filled from API availability (UnitPrice)
-let priceLookup = {}; 
+        // live lookup filled from API availability (UnitPrice)
+        let priceLookup = {};
 
-async function loadPricesFromApi() {
- try {
- // Fetch availability and global prices and merge them so we show a price even when no physical items exist
- const [availRes, pricesRes] = await Promise.all([
- fetch('/api/equipment/availability', { credentials: 'include' }),
- fetch('/api/equipment/prices', { credentials: 'include' })
- ]);
- 
- priceLookup = {};
- 
- if (pricesRes && pricesRes.ok) {
- const prices = await pricesRes.json();
- prices.forEach(p => {
- const t = String(p.Type || '').trim();
- const s = String(p.Size || '').trim();
- if (!t) return;
- priceLookup[t] = priceLookup[t] || {};
- // use price entry as baseline
- if (Number.isFinite(Number(p.Price))) priceLookup[t][s] = Number(p.Price);
- });
- }
- 
- if (availRes && availRes.ok) {
- const list = await availRes.json();
- list.forEach(p => {
- const t = String(p.Type || p.type || '').trim();
- const s = String(p.Size || p.size || '').trim();
- // prefer UnitPrice from availability
- const unit = Number(p.UnitPrice ?? p.unitPrice ?? p.UnitPrice);
- if (!t) return;
- priceLookup[t] = priceLookup[t] || {};
- if (Number.isFinite(unit) && unit >0) priceLookup[t][s] = unit;
- else if (!priceLookup[t][s] && Number.isFinite(Number(p.Price))) priceLookup[t][s] = Number(p.Price);
- });
- }
- } catch (e) {
- // ignore
- }
-}
+        async function loadPricesFromApi() {
+            try {
+                // Fetch availability and global prices and merge them so we show a price even when no physical items exist
+                const [availRes, pricesRes] = await Promise.all([
+                    fetch('/api/equipment/availability', { credentials: 'include' }),
+                    fetch('/api/equipment/prices', { credentials: 'include' })
+                ]);
 
-function readBasketFromStorage() {
- try {
- const raw = localStorage.getItem('basket');
- if (!raw) return [];
- return JSON.parse(raw);
- } catch (e) {
- // corrupted storage - remove and recover
- console.warn('Corrupted basket in localStorage, resetting.', e);
- localStorage.removeItem('basket');
- return [];
- }
-}
+                priceLookup = {};
 
-let basket = readBasketFromStorage();
+                if (pricesRes && pricesRes.ok) {
+                    const prices = await pricesRes.json();
+                    prices.forEach(p => {
+                        const t = String(p.Type || '').trim();
+                        const s = String(p.Size || '').trim();
+                        if (!t) return;
+                        priceLookup[t] = priceLookup[t] || {};
+                        // use price entry as baseline
+                        if (Number.isFinite(Number(p.Price))) priceLookup[t][s] = Number(p.Price);
+                    });
+                }
 
-const qs = sel => document.querySelector(sel);
+                if (availRes && availRes.ok) {
+                    const list = await availRes.json();
+                    list.forEach(p => {
+                        const t = String(p.Type || p.type || '').trim();
+                        const s = String(p.Size || p.size || '').trim();
+                        // prefer UnitPrice from availability
+                        const unit = Number(p.UnitPrice ?? p.unitPrice ?? p.UnitPrice);
+                        if (!t) return;
+                        priceLookup[t] = priceLookup[t] || {};
+                        if (Number.isFinite(unit) && unit > 0) priceLookup[t][s] = unit;
+                        else if (!priceLookup[t][s] && Number.isFinite(Number(p.Price))) priceLookup[t][s] = Number(p.Price);
+                    });
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
 
-const qty = i => {
- const q = Number(i.quantity || i.Qty || i.qty || i.Quantity);
- return (!Number.isFinite(q) || q <=0) ?1 : q;
-};
+        function readBasketFromStorage() {
+            try {
+                const raw = localStorage.getItem('basket');
+                if (!raw) return [];
+                return JSON.parse(raw);
+            } catch (e) {
+                // corrupted storage - remove and recover
+                console.warn('Corrupted basket in localStorage, resetting.', e);
+                localStorage.removeItem('basket');
+                return [];
+            }
+        }
 
-const name = i =>
- i.name || i.Name || [i.Type || i.type, i.Size || i.size].filter(Boolean).join(' ');
+        let basket = readBasketFromStorage();
 
-const price = i => {
- const p = Number(i.Price ?? i.price);
- if (Number.isFinite(p) && p >0) return p;
+        const qs = sel => document.querySelector(sel);
 
- const t = (i.Type ?? i.type);
- const s = (i.Size ?? i.size);
- if (t && priceLookup[t]) {
- // exact size
- if (s && priceLookup[t][s] !== undefined) return priceLookup[t][s];
- // Any / Universal
- if (priceLookup[t]['Any'] !== undefined) return priceLookup[t]['Any'];
- if (priceLookup[t]['Universal'] !== undefined) return priceLookup[t]['Universal'];
- }
+        const qty = i => {
+            const q = Number(i.quantity || i.Qty || i.qty || i.Quantity);
+            return (!Number.isFinite(q) || q <= 0) ? 1 : q;
+        };
 
- const tm = priceMap[(i.Type ?? i.type)];
- if (!tm) return 0;
- const ss = (i.Size ?? i.size);
- return (ss && tm[ss] !== undefined) ? tm[ss] : (tm.Any ||0);
-};
+        const name = i =>
+            i.name || i.Name || [i.Type || i.type, i.Size || i.size].filter(Boolean).join(' ');
 
-const baseItemsTotal = () =>
- basket.reduce((s, i) => s + price(i) * qty(i),0);
+        const price = i => {
+            const p = Number(i.Price ?? i.price);
+            if (Number.isFinite(p) && p > 0) return p;
 
-const itemsCount = () =>
- basket.reduce((s, i) => s + qty(i),0);
+            const t = (i.Type ?? i.type);
+            const s = (i.Size ?? i.size);
+            if (t && priceLookup[t]) {
+                // exact size
+                if (s && priceLookup[t][s] !== undefined) return priceLookup[t][s];
+                // Any / Universal
+                if (priceLookup[t]['Any'] !== undefined) return priceLookup[t]['Any'];
+                if (priceLookup[t]['Universal'] !== undefined) return priceLookup[t]['Universal'];
+            }
 
-const getDays = () =>
- Math.max(1, parseInt(String(qs('#rentDays').value).replace(',', '.'),10) ||1);
+            const tm = priceMap[(i.Type ?? i.type)];
+            if (!tm) return 0;
+            const ss = (i.Size ?? i.size);
+            return (ss && tm[ss] !== undefined) ? tm[ss] : (tm.Any || 0);
+        };
 
-const itemsDetail = () =>
- basket.map(i => ({
- Type: (i.Type || i.type || '').toString(),
- Size: (i.Size || i.size || '').toString(),
- Quantity: qty(i),
- EquipmentIds: Array.isArray(i.EquipmentIds || i.equipmentIds)
- ? (i.EquipmentIds || i.equipmentIds)
- : []
- }));
+        const baseItemsTotal = () =>
+            basket.reduce((s, i) => s + price(i) * qty(i), 0);
 
-function save() {
- localStorage.setItem('basket', JSON.stringify(basket));
-}
+        const itemsCount = () =>
+            basket.reduce((s, i) => s + qty(i), 0);
 
-function showWarning(msg, type = 'warn') {
- const el = qs('#stockWarning');
- if (!el) return;
- el.textContent = msg;
- el.style.display = 'block';
- el.classList.remove('warn','success');
- el.classList.add(type === 'success' ? 'success' : 'warn');
-}
+        const getDays = () =>
+            Math.max(1, parseInt(String(qs('#rentDays').value).replace(',', '.'), 10) || 1);
 
-function hideWarning() {
- const el = qs('#stockWarning');
- if (!el) return;
- el.style.display = 'none';
- el.textContent = '';
- el.classList.remove('warn','success');
-}
+        const itemsDetail = () =>
+            basket.map(i => ({
+                Type: (i.Type || i.type || '').toString(),
+                Size: (i.Size || i.size || '').toString(),
+                Quantity: qty(i),
+                EquipmentIds: Array.isArray(i.EquipmentIds || i.equipmentIds)
+                    ? (i.EquipmentIds || i.equipmentIds)
+                    : []
+            }));
 
-function renderBasket() {
- const el = qs('#basketItems');
- const placeBtn = qs('#placeOrder');
+        function save() {
+            localStorage.setItem('basket', JSON.stringify(basket));
+        }
 
- if (!basket.length) {
- el.innerHTML = '<div class="contact-item">Koszyk jest pusty.</div>';
- // show styled message and disable order
- showWarning('Koszyk jest pusty. Dodaj przedmioty, aby złożyć zamówienie.');
- if (placeBtn) placeBtn.disabled = true;
- } else {
- // coalesce identical items by Type+Size for display
- const merged = [];
- basket.forEach(i => {
- const t = (i.Type || i.type || '').toString();
- const s = (i.Size || i.size || '').toString();
- const q = Number(i.Quantity || i.quantity || i.Qty ||1) ||1;
- const ids = Array.isArray(i.EquipmentIds || i.equipmentIds) ? (i.EquipmentIds || i.equipmentIds) : [];
- const idx = merged.findIndex(m => m.Type === t && m.Size === s);
- if (idx >=0) { merged[idx].Quantity = Number(merged[idx].Quantity ||1) + q; merged[idx].EquipmentIds = Array.from(new Set([...(merged[idx].EquipmentIds||[]), ...ids])); }
- else merged.push({ Type: t, Size: s, Quantity: q, Price: i.Price ?? i.price, EquipmentIds: ids });
- 
- });
- 
- el.innerHTML = merged
- .map(i => `
- <div class="contact-item">
- <strong>${(i.Type || i.type) + ' ' + (i.Size || i.size)} × ${i.Quantity}</strong>
- <div class="contact-value">${(price(i) * qty(i)).toFixed(2)} zł</div>
- </div>`)
- .join('');
- hideWarning();
- }
+        function showWarning(msg, type = 'warn') {
+            const el = qs('#stockWarning');
+            if (!el) return;
+            el.textContent = msg;
+            el.style.display = 'block';
+            el.classList.remove('warn', 'success');
+            el.classList.add(type === 'success' ? 'success' : 'warn');
+        }
 
- const baseBeforeDiscount = baseItemsTotal() * getDays();
- qs('#baseTotal').textContent = baseBeforeDiscount.toFixed(2) + ' zł';
+        function hideWarning() {
+            const el = qs('#stockWarning');
+            if (!el) return;
+            el.style.display = 'none';
+            el.textContent = '';
+            el.classList.remove('warn', 'success');
+        }
 
- 
- preview();
-}
+        function renderBasket() {
+            const el = qs('#basketItems');
+            const placeBtn = qs('#placeOrder');
 
-async function preview() {
- const warn = qs('#stockWarning');
- const placeBtn = qs('#placeOrder');
+            if (!basket.length) {
+                el.innerHTML = '<div class="contact-item">Koszyk jest pusty.</div>';
+                // show styled message and disable order
+                showWarning('Koszyk jest pusty. Dodaj przedmioty, aby złożyć zamówienie.');
+                if (placeBtn) placeBtn.disabled = true;
+            } else {
+                // coalesce identical items by Type+Size for display
+                const merged = [];
+                basket.forEach(i => {
+                    const t = (i.Type || i.type || '').toString();
+                    const s = (i.Size || i.size || '').toString();
+                    const q = Number(i.Quantity || i.quantity || i.Qty || 1) || 1;
+                    const ids = Array.isArray(i.EquipmentIds || i.equipmentIds) ? (i.EquipmentIds || i.equipmentIds) : [];
+                    const idx = merged.findIndex(m => m.Type === t && m.Size === s);
+                    if (idx >= 0) { merged[idx].Quantity = Number(merged[idx].Quantity || 1) + q; merged[idx].EquipmentIds = Array.from(new Set([...(merged[idx].EquipmentIds || []), ...ids])); }
+                    else merged.push({ Type: t, Size: s, Quantity: q, Price: i.Price ?? i.price, EquipmentIds: ids });
 
- if (basket.length ===0) return;
- if (warn) { warn.style.display = 'none'; warn.textContent = ''; }
+                });
 
- try {
- const res = await fetch('/api/orders/preview', {
- method: 'POST',
- headers: { 'Content-Type': 'application/json' },
- credentials: 'include',
- body: JSON.stringify({
- BasePrice: Number(baseItemsTotal().toFixed(2)),
- Days: getDays(),
- ItemsCount: itemsCount(),
- ItemsDetail: itemsDetail()
- })
- });
+                el.innerHTML = merged
+                    .map(i => `
+     <div class="contact-item">
+     <strong>${(i.Type || i.type) + ' ' + (i.Size || i.size)} × ${i.Quantity}</strong>
+     <div class="contact-value">${(price(i) * qty(i)).toFixed(2)} zł</div>
+     </div>`)
+                    .join('');
+                hideWarning();
+            }
 
- if (!res.ok) {
- const txt = await res.text();
- console.warn('preview returned non-ok', res.status, txt);
- // allow placing order if preview fails but show warning
- if (placeBtn) placeBtn.disabled = false;
- showWarning('Nie można sprawdzić dostępności. Spróbuj ponownie lub spróbuj z mniejszą ilością.', 'warn');
- return;
- }
+            const baseBeforeDiscount = baseItemsTotal() * getDays();
+            qs('#baseTotal').textContent = baseBeforeDiscount.toFixed(2) + ' zł';
 
- const d = await res.json();
- console.debug('preview response', d);
- 
- let pct = Number(d.DiscountPct) ||0;
- if (pct >1) pct = pct /100;
- const final = Number(d.Price) ||0;
 
- qs('#discountPct').textContent = Math.round(pct *100) + '%';
- qs('#finalTotal').textContent = final.toFixed(2) + ' zł';
+            preview();
+        }
 
- // robust handling of error/warning (case-insensitive)
- const errMsg = d.Error || d.error || d.Message || d.message || null;
- const warnMsg = d.Warning || d.warning || null;
+        async function preview() {
+            const warn = qs('#stockWarning');
+            const placeBtn = qs('#placeOrder');
 
- if (errMsg) {
- if (placeBtn) placeBtn.disabled = true;
- showWarning(errMsg || 'Problem z dostępnością.');
- } else if (warnMsg) {
- if (placeBtn) placeBtn.disabled = false;
- // non-blocking warning
- showWarning(warnMsg || 'Dostępność ograniczona.', 'warn');
- } else {
- if (placeBtn) placeBtn.disabled = false;
- hideWarning();
- }
- } catch (e) {
- console.error('preview error', e);
- // network or unexpected error: allow placing order but show notice
- const placeBtn = qs('#placeOrder'); if (placeBtn) placeBtn.disabled = false;
- showWarning('Błąd sprawdzania dostępności. Spróbuj ponownie.', 'warn');
- }
-}
+            if (basket.length === 0) return;
+            if (warn) { warn.style.display = 'none'; warn.textContent = ''; }
 
-async function placeOrder() {
- try {
- if (basket.length ===0) {
- showWarning('Koszyk jest pusty. Nie można złożyć zamówienia.');
- return;
- }
+            try {
+                const res = await fetch('/api/orders/preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        BasePrice: Number(baseItemsTotal().toFixed(2)),
+                        Days: getDays(),
+                        ItemsCount: itemsCount(),
+                        ItemsDetail: itemsDetail()
+                    })
+                });
 
- const items = basket.map(i => `${name(i)} x ${qty(i)}`);
+                if (!res.ok) {
+                    const txt = await res.text();
+                    console.warn('preview returned non-ok', res.status, txt);
+                    // allow placing order if preview fails but show warning
+                    if (placeBtn) placeBtn.disabled = false;
+                    showWarning('Nie można sprawdzić dostępności. Spróbuj ponownie lub spróbuj z mniejszą ilością.', 'warn');
+                    return;
+                }
 
- const res = await fetch('/api/orders', {
- method: 'POST',
- headers: { 'Content-Type': 'application/json' },
- credentials: 'include',
- body: JSON.stringify({
- Items: items,
- BasePrice: Number(baseItemsTotal().toFixed(2)),
- Days: getDays(),
- ItemsCount: itemsCount(),
- ItemsDetail: itemsDetail()
- })
- });
+                const d = await res.json();
+                console.debug('preview response', d);
 
- if (!res.ok) {
- // try to parse JSON error payload (e.g. { Message: '...' }) to show friendly message
- let txt = await res.text();
- let msg = txt;
- try {
- const parsed = JSON.parse(txt);
- msg = parsed.Message || parsed.message || parsed.Error || parsed.error || txt;
- } catch (e) {
- // not JSON, keep raw text
- }
- // show styled error instead of alert
- showWarning(msg || 'Nie można złożyć zamówienia.');
- throw new Error(msg || 'Nie można złożyć zamówienia');
- }
+                let pct = Number(d.DiscountPct) || 0;
+                if (pct > 1) pct = pct / 100;
+                const final = Number(d.Price) || 0;
 
- const d = await res.json();
- console.debug('create response', d);
- // normalize discount returned
- let pct = Number(d.DiscountPct) ||0;
- if (pct >1) pct = pct /100;
+                qs('#discountPct').textContent = Math.round(pct * 100) + '%';
+                qs('#finalTotal').textContent = final.toFixed(2) + ' zł';
 
- // Show success as styled message
- const orderMsg = qs('#orderMsg');
- if (orderMsg) { orderMsg.className = 'msg success'; orderMsg.textContent = `✅ Zamówienie złożone. Cena: ${(Number(d.Price) ||0).toFixed(2)} zł za ${getDays()} dni.`; }
- showToast(`Zamówienie złożone. Cena: ${(Number(d.Price) ||0).toFixed(2)} zł za ${getDays()} dni, zniżka: ${Math.round(pct *100)}%`,6000);
+                // robust handling of error/warning (case-insensitive)
+                const errMsg = d.Error || d.error || d.Message || d.message || null;
+                const warnMsg = d.Warning || d.warning || null;
 
- // Debug: fetch created order and pending/issued lists to verify backend state
- try {
- if (d && d.OrderId) {
- const r1 = await fetch(`/api/orders/report?id=${encodeURIComponent(d.OrderId)}`, { credentials: 'include' });
- const rep = r1.ok ? await r1.json() : await r1.text();
- console.debug('fetched created order by id', rep);
- }
- const p = await fetch('/api/orders/pending', { credentials: 'include' });
- const pending = p.ok ? await p.json() : null;
- console.debug('pending list after create', pending);
- const i = await fetch('/api/orders/issued', { credentials: 'include' });
- const issued = i.ok ? await i.json() : null;
- console.debug('issued list after create', issued);
- } catch (ex) {
- console.error('post-create debug fetch failed', ex);
- }
+                if (errMsg) {
+                    if (placeBtn) placeBtn.disabled = true;
+                    showWarning(errMsg || 'Problem z dostępnością.');
+                } else if (warnMsg) {
+                    if (placeBtn) placeBtn.disabled = false;
+                    // non-blocking warning
+                    showWarning(warnMsg || 'Dostępność ograniczona.', 'warn');
+                } else {
+                    if (placeBtn) placeBtn.disabled = false;
+                    hideWarning();
+                }
+            } catch (e) {
+                console.error('preview error', e);
+                // network or unexpected error: allow placing order but show notice
+                const placeBtn = qs('#placeOrder'); if (placeBtn) placeBtn.disabled = false;
+                showWarning('Błąd sprawdzania dostępności. Spróbuj ponownie.', 'warn');
+            }
+        }
 
- localStorage.removeItem('basket');
- basket.length =0;
+        async function placeOrder() {
+            try {
+                if (basket.length === 0) {
+                    showWarning('Koszyk jest pusty. Nie można złożyć zamówienia.');
+                    return;
+                }
 
- renderBasket();
- // Refresh page shortly so equipment lists / availability update
- setTimeout(() => { try { window.location.reload(); } catch { } },1200);
- } catch (e) {
- // errors already displayed via showWarning
- console.error('placeOrder failed', e);
- }
-}
+                const items = basket.map(i => `${name(i)} x ${qty(i)}`);
 
-// attach listeners after DOM is ready
-document.addEventListener('DOMContentLoaded', async () => { 
- await loadPricesFromApi(); 
- // reload basket from storage in case it was modified elsewhere
- basket = readBasketFromStorage();
- renderBasket();
- const clearBtn = qs('#clearBasket'); if (clearBtn) clearBtn.addEventListener('click', () => { localStorage.removeItem('basket'); basket.length =0; renderBasket(); });
- const placeBtn = qs('#placeOrder'); if (placeBtn) placeBtn.addEventListener('click', placeOrder);
- const rentDaysEl = qs('#rentDays'); if (rentDaysEl) rentDaysEl.addEventListener('input', () => renderBasket());
-});
+                const res = await fetch('/api/orders', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        Items: items,
+                        BasePrice: Number(baseItemsTotal().toFixed(2)),
+                        Days: getDays(),
+                        ItemsCount: itemsCount(),
+                        ItemsDetail: itemsDetail()
+                    })
+                });
 
-// update UI when storage changes (another tab/page updated the basket)
-window.addEventListener('storage', (e) => {
- if (e.key === 'basket') {
- basket = readBasketFromStorage();
- renderBasket();
- }
-});
+                if (!res.ok) {
+                    // try to parse JSON error payload (e.g. { Message: '...' }) to show friendly message
+                    let txt = await res.text();
+                    let msg = txt;
+                    try {
+                        const parsed = JSON.parse(txt);
+                        msg = parsed.Message || parsed.message || parsed.Error || parsed.error || txt;
+                    } catch (e) {
+                        // not JSON, keep raw text
+                    }
+                    // show styled error instead of alert
+                    showWarning(msg || 'Nie można złożyć zamówienia.');
+                    throw new Error(msg || 'Nie można złożyć zamówienia');
+                }
 
-let _toastTimer = null;
-function showToast(msg, duration =4500) {
- const t = qs('#winterToast');
- if (!t) return;
- const msgEl = t.querySelector('.toast-message');
- const closeBtn = t.querySelector('.toast-close');
- msgEl.textContent = msg;
- t.style.display = 'block';
- t.classList.remove('hide');
- t.classList.add('show');
- // clear previous timer
- if (_toastTimer) { clearTimeout(_toastTimer); _toastTimer = null; }
- _toastTimer = setTimeout(() => hideToast(), duration);
- // close button
- if (closeBtn) {
- closeBtn.onclick = () => hideToast();
- }
-}
-function hideToast() {
- const t = qs('#winterToast');
- if (!t) return;
- t.classList.remove('show');
- t.classList.add('hide');
- if (_toastTimer) { clearTimeout(_toastTimer); _toastTimer = null; }
- // hide after animation
- setTimeout(() => { if (t) t.style.display = 'none'; },300);
-}
+                const d = await res.json();
+                console.debug('create response', d);
+                // normalize discount returned
+                let pct = Number(d.DiscountPct) || 0;
+                if (pct > 1) pct = pct / 100;
 
-// end of scripts
-</script>
+                // Show success as styled message
+                const orderMsg = qs('#orderMsg');
+                if (orderMsg) { orderMsg.className = 'msg success'; orderMsg.textContent = `✅ Zamówienie złożone. Cena: ${(Number(d.Price) || 0).toFixed(2)} zł za ${getDays()} dni.`; }
+                showToast(`Zamówienie złożone. Cena: ${(Number(d.Price) || 0).toFixed(2)} zł za ${getDays()} dni, zniżka: ${Math.round(pct * 100)}%`, 6000);
+
+                try {
+                    if (d && d.OrderId) {
+                        const r1 = await fetch(`/api/orders/report?id=${encodeURIComponent(d.OrderId)}`, { credentials: 'include' });
+                        const rep = r1.ok ? await r1.json() : await r1.text();
+                        console.debug('fetched created order by id', rep);
+                    }
+                    const p = await fetch('/api/orders/pending', { credentials: 'include' });
+                    const pending = p.ok ? await p.json() : null;
+                    console.debug('pending list after create', pending);
+                    const i = await fetch('/api/orders/issued', { credentials: 'include' });
+                    const issued = i.ok ? await i.json() : null;
+                    console.debug('issued list after create', issued);
+                } catch (ex) {
+                    console.error('post-create debug fetch failed', ex);
+                }
+
+                localStorage.removeItem('basket');
+                basket.length = 0;
+
+                renderBasket();
+                // Refresh page shortly so equipment lists / availability update
+                setTimeout(() => { try { window.location.reload(); } catch { } }, 1200);
+            } catch (e) {
+                // errors already displayed via showWarning
+                console.error('placeOrder failed', e);
+            }
+        }
+
+        // attach listeners after DOM is ready
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadPricesFromApi();
+            // reload basket from storage in case it was modified elsewhere
+            basket = readBasketFromStorage();
+            renderBasket();
+            const clearBtn = qs('#clearBasket'); if (clearBtn) clearBtn.addEventListener('click', () => { localStorage.removeItem('basket'); basket.length = 0; renderBasket(); });
+            const placeBtn = qs('#placeOrder'); if (placeBtn) placeBtn.addEventListener('click', placeOrder);
+            const rentDaysEl = qs('#rentDays'); if (rentDaysEl) rentDaysEl.addEventListener('input', () => renderBasket());
+        });
+
+        // update UI when storage changes (another tab/page updated the basket)
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'basket') {
+                basket = readBasketFromStorage();
+                renderBasket();
+            }
+        });
+
+        let _toastTimer = null;
+        function showToast(msg, duration = 4500) {
+            const t = qs('#winterToast');
+            if (!t) return;
+            const msgEl = t.querySelector('.toast-message');
+            const closeBtn = t.querySelector('.toast-close');
+            msgEl.textContent = msg;
+            t.style.display = 'block';
+            t.classList.remove('hide');
+            t.classList.add('show');
+            // clear previous timer
+            if (_toastTimer) { clearTimeout(_toastTimer); _toastTimer = null; }
+            _toastTimer = setTimeout(() => hideToast(), duration);
+            // close button
+            if (closeBtn) {
+                closeBtn.onclick = () => hideToast();
+            }
+        }
+        function hideToast() {
+            const t = qs('#winterToast');
+            if (!t) return;
+            t.classList.remove('show');
+            t.classList.add('hide');
+            if (_toastTimer) { clearTimeout(_toastTimer); _toastTimer = null; }
+            // hide after animation
+            setTimeout(() => { if (t) t.style.display = 'none'; }, 300);
+        }
+
+      
+    </script>
 }

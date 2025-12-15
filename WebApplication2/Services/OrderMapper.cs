@@ -5,6 +5,7 @@ namespace Rent.Services
 {
  public static class OrderMapper
  {
+ // map order to dto
  public static object ToDto(Order o)
  {
  return new

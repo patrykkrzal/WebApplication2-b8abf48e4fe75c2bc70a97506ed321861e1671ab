@@ -30,6 +30,7 @@ namespace Rent.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
+            // create identity user
             var user = new User
             {
                 UserName = dto.Email,
@@ -79,7 +80,7 @@ namespace Rent.Controllers
             return Ok(new { Message = "Worker created successfully", UserId = user.Id, WorkerId = worker.Id, RentalInfoId = resolvedRentalInfoId });
         }
 
-        // DELETE user/worker
+        // delete user/worker
         [HttpDelete("{email}")]
         public async Task<IActionResult> DeleteByEmail(string email)
         {

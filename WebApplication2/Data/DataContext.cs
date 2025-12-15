@@ -55,8 +55,7 @@ namespace Rent.Data
             modelBuilder.Entity<OrderedItem>().Property(oi => oi.PriceWhenOrdered).HasPrecision(18, 2);
 
 
-            // OrderLogs table is managed by DB triggers/SQL scripts. We intentionally do not map OrderLog entity to EF here
-            // so that logs are written and maintained at the DB level only.
+            // order logs
 
             modelBuilder
                 .HasDbFunction(typeof(DataContext).GetMethod(nameof(FnOrderDiscount), new[] { typeof(int), typeof(int) })!)
@@ -71,6 +70,26 @@ namespace Rent.Data
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

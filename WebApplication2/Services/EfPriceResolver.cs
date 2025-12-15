@@ -2,11 +2,13 @@ using System.Linq;
 using Microsoft.Extensions.Caching.Memory;
 using Rent.Data;
 using Rent.Models;
+using Rent.Interfaces;
 
 namespace Rent.Services
 {
  public class EfPriceResolver : IPriceResolver
  {
+ // resolve price
  private readonly DataContext db;
  private readonly IMemoryCache cache;
  private static readonly string CachePrefix = "price_";

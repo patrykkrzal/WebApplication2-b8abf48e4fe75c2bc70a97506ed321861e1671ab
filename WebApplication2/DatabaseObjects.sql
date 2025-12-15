@@ -1,4 +1,4 @@
--- Funkcja sumuj¹ca wartoœæ zamówienia
+-- sum order total
 IF OBJECT_ID('dbo.ufn_OrderTotal','FN') IS NOT NULL
  DROP FUNCTION dbo.ufn_OrderTotal;
 GO
@@ -14,30 +14,12 @@ BEGIN
 END;
 GO
 
--- Procedura dodaj¹ca sprzêt
-IF OBJECT_ID('dbo.spAddEquipment','P') IS NOT NULL
- DROP PROCEDURE dbo.spAddEquipment;
-GO
-CREATE PROCEDURE dbo.spAddEquipment
- @Type INT,
- @Size INT,
- @Price DECIMAL(18,2)
-AS
-BEGIN
- SET NOCOUNT ON;
- INSERT INTO Equipment (Type, Size, Is_In_Werehouse, Price, Is_Reserved)
- VALUES (@Type, @Size,1, @Price,0);
-
- SELECT SCOPE_IDENTITY() AS NewEquipmentId;
-END;
-GO
-
 -- Remove old OrderedItems trigger if present
 IF OBJECT_ID('dbo.trg_OrderedItems_RecalculateOrderTotal','TR') IS NOT NULL
  DROP TRIGGER dbo.trg_OrderedItems_RecalculateOrderTotal;
 GO
 
--- Create audit table for order logs if not exists
+-- order logs table
 IF OBJECT_ID('dbo.OrderLogs','U') IS NULL
 BEGIN
  CREATE TABLE dbo.OrderLogs
@@ -55,8 +37,7 @@ IF OBJECT_ID('dbo.trg_Orders_CalculatePriceOnInsert','TR') IS NOT NULL
  DROP TRIGGER dbo.trg_Orders_CalculatePriceOnInsert;
 GO
 
--- Trigger: when Orders are UPDATED (e.g. accepted), set DueDate based on Days (fallback7 days).
--- It does NOT run on INSERT to avoid marking new orders as already accepted.
+-- set due date trigger (after update)
 CREATE OR ALTER TRIGGER dbo.trg_Orders_SetDueDate
 ON Orders
 AFTER UPDATE
@@ -79,7 +60,7 @@ BEGIN
  INNER JOIN Changed c ON o.Id = c.Id
  WHERE o.DueDate IS NULL;
 
- -- Log the action for audit. CTE 'Changed' is out of scope here, so compute changed rows again in a derived table.
+ -- insert audit log
  INSERT INTO dbo.OrderLogs (OrderId, Message)
  SELECT ch.Id,
  CONCAT('DueDate set by trigger to ', FORMAT(DATEADD(day, CASE WHEN ch.Days IS NULL OR ch.Days <1 THEN 7 ELSE ch.Days END, ch.OrderDate), 'yyyy-MM-dd HH:mm:ss'))
@@ -93,7 +74,7 @@ BEGIN
 END
 GO
 
--- Pricing objects
+-- pricing
 GO
 CREATE OR ALTER FUNCTION dbo.fnOrderDiscount(@itemsCount int, @days int)
 RETURNS decimal(5,2)
@@ -135,7 +116,7 @@ BEGIN
 END
 GO
 
--- Procedure to add order using calculation
+-- create order sp
 CREATE OR ALTER PROCEDURE dbo.spCreateOrder
  @userId nvarchar(450),
  @rentedItems nvarchar(255),
@@ -149,16 +130,5 @@ BEGIN
  EXEC dbo.spCalculateOrderPrice @basePrice, @itemsCount, @days, @final OUTPUT, @pct OUTPUT;
  INSERT INTO Orders (Rented_Items, OrderDate, Price, Date_Of_submission, Was_It_Returned, UserId)
  VALUES (@rentedItems, SYSUTCDATETIME(), @final, CAST(GETUTCDATE() AS date),0, @userId);
-END
-GO
-
--- Keep a minimal Orders trigger placeholder for future lightweight validations
-CREATE OR ALTER TRIGGER dbo.trg_Orders_ValidateDiscount
-ON Orders
-AFTER INSERT
-AS
-BEGIN
- SET NOCOUNT ON;
- -- placeholder for future lightweight validations
 END
 GO

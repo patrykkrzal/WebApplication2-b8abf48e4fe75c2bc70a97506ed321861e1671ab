@@ -9,7 +9,7 @@ namespace Rent.Models
         [Key]
         public int Id { get; set; }
 
-        // changed from enum to string
+        // type as string
         [MaxLength(100)]
         public string Type { get; set; } = string.Empty;
 
@@ -19,15 +19,16 @@ namespace Rent.Models
         [Required]
         public bool Is_In_Werehouse { get; set; }
 
-        // Price is now optional on individual equipment. Canonical price is in EquipmentPrice.
+        // optional price
         public decimal? Price { get; set; }
 
-        // Foreign key to canonical EquipmentPrice (optional)
+        // price FK
         public int? EquipmentPriceId { get; set; }
         public EquipmentPrice? EquipmentPrice { get; set; }
 
         public bool Is_Reserved { get; set; }
 
+        // relations
         public ICollection<OrderedItem> OrderedItems { get; set; } = new List<OrderedItem>();
 
         public RentalInfo? RentalInfo { get; set; }

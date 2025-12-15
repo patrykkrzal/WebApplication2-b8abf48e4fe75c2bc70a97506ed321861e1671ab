@@ -31,7 +31,7 @@ namespace Rent.DTO
         public string Job_Title { get; set; } = null!;
 
         [Required, MinLength(6)]
-        public string Password { get; set; } = null!;    // DODANE (bo było brak!)  
+        public string Password { get; set; } = null!;    
 
         [Required]
         public int RentalInfoId { get; set; }
