@@ -28,7 +28,7 @@ namespace Tests
  }
 
  [Test]
- public async Task Preview_Returns_Price_And_Warning_When_Stock_Insufficient()
+ public async Task Preview_Returns_Price_And_Warning()
  {
  // arrange: create a preview DTO requesting large quantity that exceeds seed availability
  var dto = new CreateOrderDto

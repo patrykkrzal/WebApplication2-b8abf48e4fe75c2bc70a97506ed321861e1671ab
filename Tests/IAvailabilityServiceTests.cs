@@ -4,6 +4,7 @@ using Rent.Services;
 using Rent.Models;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Tests
 {
@@ -28,7 +29,7 @@ namespace Tests
  }
 
  [Test]
- public void Availability_returns_only_available()
+ public void AvailabilityOnlyAvailable()
  {
  var available = _svc.GetAvailableEquipment().ToList();
  Assert.AreEqual(1, available.Count);

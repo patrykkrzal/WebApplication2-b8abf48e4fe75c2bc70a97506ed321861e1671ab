@@ -8,12 +8,13 @@
 <style>
 
     .order-card {
-        background: linear-gradient(180deg, rgba(12,39,66,0.75), rgba(12,39,66,0.55));
-        border: 2px solid #1e4a7a;
-        border-radius: 14px;
-        padding: 12px;
-        margin: 10px0;
-        box-shadow: 6px18px rgba(0,0,0,0.35);
+        /* removed gradient background, border and heavy shadow to keep UI flat */
+        background: transparent;
+        border: none;
+        border-radius:8px;
+        padding:8px12px;
+        margin:10px0;
+        box-shadow: none;
     }
 
     .order-items {
@@ -45,7 +46,7 @@
 
     .grid {
         display: grid;
-        gap: 1rem
+        gap:1rem
     }
 
     .col {
@@ -65,40 +66,41 @@
     }
 
     .report-box {
-        background: linear-gradient(180deg, rgba(12,39,66,0.75), rgba(12,39,66,0.55));
-        border: 2px solid #1e4a7a;
-        border-radius: 14px;
-        padding: 12px;
+        /* simplified report box: no gradient, border or shadow */
+        background: transparent;
+        border: none;
+        border-radius:8px;
+        padding:12px;
         margin-top: .6rem;
-        box-shadow: 6px18px rgba(0,0,0,0.35);
+        box-shadow: none;
     }
 
     .inline-row {
         display: flex;
-        gap: 8px;
+        gap:8px;
         align-items: center;
         flex-wrap: wrap;
         margin: .35rem0;
     }
 
         .inline-row label {
-            flex: 00160px;
-            width: 160px;
-            margin: 0;
+            flex:00160px;
+            width:160px;
+            margin:0;
             color: #9fc7ff;
             text-align: left;
         }
 
         .inline-row input.form-control {
-            flex: 11 auto;
-            min-width: 160px;
-            max-width: 9999px;
-            margin: 0;
+            flex:11 auto;
+            min-width:160px;
+            max-width:9999px;
+            margin:0;
         }
 
         .inline-row .winter-button {
-            flex: 00 auto;
-            margin-left: 6px;
+            flex:00 auto;
+            margin-left:6px;
         }
 
     .msg {
@@ -112,9 +114,9 @@
         background: #fff !important
     }
 
-        .pdf-export .order-card {
-            border-color: #000 !important
-        }
+    .pdf-export .order-card {
+        border-color: #000 !important
+    }
 
     /* small screens: stack label above input */
     @@media (max-width:600px) {
@@ -125,13 +127,21 @@
 
             .inline-row label {
                 width: auto;
-                flex: 00 auto;
+                flex:00 auto;
             }
 
             .inline-row .winter-button {
-                margin-left: 0;
+                margin-left:0;
                 align-self: flex-start;
             }
+    }
+
+    /* empty state for lists */
+    .contact-item {
+        background: transparent;
+        border: none;
+        padding:6px4px;
+        color: inherit;
     }
 </style>
 

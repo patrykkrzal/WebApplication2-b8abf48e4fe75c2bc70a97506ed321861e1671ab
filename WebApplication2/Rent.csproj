@@ -7,6 +7,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Ropository\**" />
+    <Content Remove="Ropository\**" />
+    <EmbeddedResource Remove="Ropository\**" />
+    <None Remove="Ropository\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="Properties\launchSettings.json" />
   </ItemGroup>
 
@@ -34,7 +41,6 @@
 
   <ItemGroup>
     <Folder Include="Interfaces\" />
-    <Folder Include="Ropository\" />
     <Folder Include="wwwroot\js\" />
   </ItemGroup>
 

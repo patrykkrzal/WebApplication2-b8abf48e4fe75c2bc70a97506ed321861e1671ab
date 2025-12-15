@@ -5,7 +5,7 @@ namespace Tests.Order
     public class CalculatePriceDiscount
     {
         [Test]
-        public void CalculatePriceDiscount_Basic()
+        public void DiscountBasic()
         {
 
             decimal basePrice = 100m;

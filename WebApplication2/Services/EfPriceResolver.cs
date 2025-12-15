@@ -8,7 +8,7 @@ namespace Rent.Services
 {
  public class EfPriceResolver : IPriceResolver
  {
- // resolve price
+
  private readonly DataContext db;
  private readonly IMemoryCache cache;
  private static readonly string CachePrefix = "price_";
@@ -33,7 +33,7 @@ namespace Rent.Services
  return ep.Price;
  }
 
- // fallback to some defaults based on text - keep legacy mapping
+
  decimal price =0m;
  var t = tnorm;
  var s = snorm;

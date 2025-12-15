@@ -21,9 +21,9 @@ namespace Tests
         }
 
         [Test]
-        public void Equipment_service_adds_and_returns_all()
+        public void EquipmentAddsAndReturnsAll()
         {
-            var dto = new CreateEquipmentDTO { Type = "Skis", Size = "Medium", Price = 10m };
+            var dto = new CreateEquipmentDTO { Type = "Skis", Size = "Medium", Price =10m };
             var e = _svc.AddEquipment(dto);
             var all = _svc.GetAll().ToList();
             Assert.AreEqual(1, all.Count);

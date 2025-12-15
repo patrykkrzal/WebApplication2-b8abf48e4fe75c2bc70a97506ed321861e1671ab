@@ -2,6 +2,7 @@ using NUnit.Framework;
 using Rent.Interfaces;
 using Rent.Services;
 using Rent.DTO;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Tests
 {
@@ -18,7 +19,7 @@ namespace Tests
  }
 
  [Test]
- public void Order_service_creates_order()
+ public void OrderCreatesOrder()
  {
  var dto = new CreateOrderDto { BasePrice =10m, Days =2 };
  var o = _svc.CreateOrder(dto, "user1");

@@ -1,0 +1,12 @@
+.order-box { background: rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.2); border-radius:10px; padding: .75rem; margin-bottom: .7rem; }
+
+.order-items { font-size: .8rem; margin-top: .4rem; line-height:1.25; }
+.order-group { font-size: .8rem; margin-top: .3rem; }
+.status-badge { display: inline-block; padding: .25rem .55rem; border-radius:14px; font-size: .7rem; font-weight:600; letter-spacing: .5px; }
+.status-pending { background: #f39c12; color: #fff; }
+.status-owned { background: #2980b9; color: #fff; }
+.status-finished { background: #27ae60; color: #fff; }
+.status-deleted { background: #7f8c8d; color: #fff; }
+.order-title { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .4rem; }
+.order-items-summary { font-size: .8rem; margin-top: .45rem; color: rgba(255,255,255,.85); border-top:1px dashed rgba(255,255,255,.2); padding-top: .4rem; }
+.due { font-size: .8rem; opacity: .9 }

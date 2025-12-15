@@ -5,32 +5,9 @@
  ViewData["Title"] = "Panel administratora";
 }
 
-<style>
- .admin-grid {
- display: grid;
- gap:1rem;
- }
-
- .two-col {
- display: grid;
- grid-template-columns: repeat(auto-fit, minmax(220px,1fr));
- gap: .75rem;
- }
-
- .msg { margin-top: .5rem; font-size: .95rem; }
- .msg.error { color: #ff6b6b; }
- .msg.success { color: #2ecc71; }
-
- .logs-box { margin-top:1rem; }
- .logs-item { padding: .45rem .6rem; border-bottom:1px solid rgba(255,255,255,.15); }
- .logs-item .lvl { font-weight:700; margin-right: .4rem; }
-
- .delete-box { margin-top:1.2rem; }
-
- /* Price manager removed (managed elsewhere) */
- .prices-box { margin-top: .8rem; }
- .price-actions { display:flex; gap:8px; align-items:center; }
-</style>
+@section Styles {
+ <link rel="stylesheet" href="/css/admin-panel.css" />
+}
 
 <div class="content-section">
  <div class="frost-effect admin-grid">
@@ -136,7 +113,8 @@
  const fd = new FormData(deleteForm);
  const email = (fd.get('DelEmail') || '').toString().trim();
  if (!email) { deleteMsg.className = 'msg error'; deleteMsg.textContent = 'Podaj email.'; return; }
- const res = await fetch('/api/Users?email=' + encodeURIComponent(email), { method: 'DELETE', credentials: 'include' });
+ // call WorkersController delete endpoint (expects route /api/Workers/{email})
+ const res = await fetch('/api/Workers/' + encodeURIComponent(email), { method: 'DELETE', credentials: 'include' });
  if (!res.ok) {
  const txt = await res.text();
  deleteMsg.className = 'msg error'; deleteMsg.textContent = 'Błąd: ' + (txt || res.statusText || 'Nieznany błąd');

@@ -6,7 +6,7 @@ namespace Rent.Services
 {
     public class EquipmentStateService : IEquipmentStateService
     {
-        // reserve/restore helpers
+      
         public void Reserve(OrderedItem oi)
         {
             var e = oi.Equipment;

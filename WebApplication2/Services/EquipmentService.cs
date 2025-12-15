@@ -11,7 +11,7 @@ namespace Rent.Services
  private readonly List<Equipment> equipments;
  private int idCounter =1;
  public EquipmentService(List<Equipment>? equipments = null) { this.equipments = equipments ?? new List<Equipment>(); }
- // add equipment (test)
+
  public Equipment AddEquipment(CreateEquipmentDTO dto)
  {
  var eq = new Equipment

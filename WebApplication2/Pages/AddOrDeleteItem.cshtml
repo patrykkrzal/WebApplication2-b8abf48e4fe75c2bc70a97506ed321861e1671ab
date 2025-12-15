@@ -5,69 +5,9 @@
  ViewData["Title"] = "Dodaj / Usuń sprzęt";
 }
 
-<style>
-
-.form-box { background: transparent !important; box-shadow: none !important; padding:0 !important; margin-top:12px !important; }
-.avail-table { margin-top:18px; width:100%; border-collapse:collapse; table-layout: fixed; }
-.avail-table th, .avail-table td { padding:8px10px; border-bottom:1px solid rgba(255,255,255,0.06); text-align:left; vertical-align:middle; }
-/* fixed column widths (percentages) */
-.avail-table th:nth-child(1), .avail-table td:nth-child(1) { width:28%; }
-.avail-table th:nth-child(2), .avail-table td:nth-child(2) { width:16%; }
-.avail-table th:nth-child(3), .avail-table td:nth-child(3) { width:12%; }
-.avail-table th:nth-child(4), .avail-table td:nth-child(4) { width:44%; }
-
-.avail-qty { width:72px; }
-.price-input { /* make price input full width and match .form-control */
- width:100%; box-sizing:border-box; }
-
-/* Mode buttons row: compact, single-line */
-.mode-buttons { display:flex; gap:8px; align-items:center; flex-wrap:nowrap; margin-top:8px; overflow-x:auto; }
-.mode-buttons .winter-button { min-width:110px; padding:6px10px; font-size:0.92rem; }
-
-/* Small winter buttons (used for actions) */
-.winter-button.small { height:34px; padding:6px10px; font-size:0.92rem; }
-.winter-button.small.danger { background: linear-gradient(180deg, #7f1d1d, #5f0f0f); border-color: rgba(0,0,0,0.25); }
-
-/* Make inputs visually match theme and be uniform */
-.form-control, .price-input, .avail-qty, select.form-control, input[type="file"].form-control {
- display:block; width:100%; box-sizing:border-box; background: rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.06); color: #fff; padding:10px12px; border-radius:8px; height:42px;
+@section Styles {
+ <link rel="stylesheet" href="/css/add-item.css" />
 }
-/* File input: allow text to show and match height */
-input[type="file"].form-control { padding:6px12px; height:auto; }
-
-/* Style selects to match inputs/buttons */
-select.form-control, select.form-control:focus {
- background: rgba(0,0,0,0.35);
- border:1px solid rgba(255,255,255,0.06);
- color: #fff;
- padding:8px12px;
- border-radius:8px;
- -webkit-appearance: none;
- -moz-appearance: none;
- appearance: none;
-}
-/* add a subtle down-arrow using CSS gradients positioned on the right */
-select.form-control {
- background-image: linear-gradient(45deg, transparent50%, rgba(255,255,255,0.9)50%), linear-gradient(135deg, rgba(255,255,255,0.9)50%, transparent50%);
- background-position: calc(100% -12px) calc(50% -3px), calc(100% -6px) calc(50% -3px);
- background-size:6px6px,6px6px;
- background-repeat: no-repeat;
-}
-
-/* Truncate long text with ellipsis */
-.cell-truncate { display: inline-block; width:100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-/* Responsive: on narrow screens allow wrapping */
-@@media (max-width:720px) {
- .avail-table { table-layout: auto; }
- .cell-truncate { white-space: normal; }
- .mode-buttons { flex-wrap:wrap; }
- .avail-table th:nth-child(1), .avail-table td:nth-child(1),
- .avail-table th:nth-child(2), .avail-table td:nth-child(2),
- .avail-table th:nth-child(3), .avail-table td:nth-child(3),
- .avail-table th:nth-child(4), .avail-table td:nth-child(4) { width: auto; }
-}
-</style>
 
 <h1 class="winter-title">Zarządzanie sprzętem</h1>
 
@@ -227,6 +167,11 @@ select.form-control {
  if(!fileEl || !fileEl.files || fileEl.files.length===0) { alert('Wybierz zdjęcie dla przedmiotu'); return; }
  if(fileEl && fileEl.files && fileEl.files.length>0){ const fd=new FormData(); fd.append('file', fileEl.files[0]); try { const r=await fetch(`${apiBase}/api/equipment/upload`,{method:'POST',body:fd,credentials:'include'}); if(!r.ok) { const txt = await r.text(); alert('Upload failed: ' + txt); return; } const jr=await r.json(); imageUrl=jr.Url; } catch(ex){ alert('Błąd uploadu pliku'); return; } }
  try{
+ // if price provided, persist as global price first so price resolver and availability use it
+ if (p !== undefined && !Number.isNaN(p)) {
+ try { await postJson(`${apiBase}/api/equipment/prices`, { Type: t, Size: s, Price: p }); } catch (err) { console.warn('Failed to upsert price before create:', err); }
+ }
+
  await postJson(`${apiBase}/api/equipment/add`,{Type:t,Size:s,Quantity:q,Price:p,ImageUrl:imageUrl});
  await renderAvailabilityTable();
  alert('Dodano');
@@ -235,12 +180,20 @@ select.form-control {
  document.getElementById('createCancel').addEventListener('click',()=>{ hideAllPanels(); });
 
  // add size panel handler
- document.getElementById('addSizeBtn').addEventListener('click', async()=>{ const t=document.getElementById('existingTypeSelect').value; const s=document.getElementById('newSize').value; const q=parseInt(document.getElementById('newQty').value)||1; if(!t||!s){ alert('Wybierz typ i podaj rozmiar'); return; } const pEl = document.getElementById('newPrice'); const p = pEl && pEl.value ? parseFloat(pEl.value) : undefined; if (!t || !s) { alert('Wybierz typ i podaj rozmiar'); return; } try { await postJson(`${apiBase}/api/equipment/add`, { Type: t, Size: s, Quantity: q, Price: p }); await renderAvailabilityTable(); alert('Dodano rozmiar'); } catch (e) { alert('Błąd'); } });
+ document.getElementById('addSizeBtn').addEventListener('click', async()=>{ const t=document.getElementById('existingTypeSelect').value; const s=document.getElementById('newSize').value; const q=parseInt(document.getElementById('newQty').value)||1; if(!t||!s){ alert('Wybierz typ i podaj rozmiar'); return; } const pEl = document.getElementById('newPrice'); const p = pEl && pEl.value ? parseFloat(pEl.value) : undefined; if (!t || !s) { alert('Wybierz typ i podaj rozmiar'); return; } try { // persist global price first when adding a new size
+ if (p !== undefined && !Number.isNaN(p)) {
+ try { await postJson(`${apiBase}/api/equipment/prices`, { Type: t, Size: s, Price: p }); } catch (err) { console.warn('Failed to upsert price before add size:', err); }
+ }
+
+ await postJson(`${apiBase}/api/equipment/add`, { Type: t, Size: s, Quantity: q, Price: p });
+ await renderAvailabilityTable();
+ alert('Dodano rozmiar');
+ } catch (e) { alert('Błąd'); } });
  document.getElementById('addSizeCancel').addEventListener('click',()=>{ hideAllPanels(); });
 
  // init
  await renderAvailabilityTable(); hideAllPanels();
 })();
 
- </script>
+</script>
 }

@@ -2,6 +2,7 @@ using NUnit.Framework;
 using Rent.Interfaces;
 using Rent.Services;
 using Rent.DTO;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Tests
 {
@@ -19,7 +20,7 @@ namespace Tests
         }
 
         [Test]
-        public void RegisterWorker_returns_worker_with_expected_fields_and_id_increments()
+        public void RegisterWorkerFieldsAndId()
         {
             var dto1 = new CreateWorkerDTO { FirstName = "A", LastName = "B", Email = "a@e.com", PhoneNumber = "123456789", Job_Title = "J", RentalInfoId =1, Password = "abcdef" };
             var w1 = _svc.RegisterWorker(dto1);

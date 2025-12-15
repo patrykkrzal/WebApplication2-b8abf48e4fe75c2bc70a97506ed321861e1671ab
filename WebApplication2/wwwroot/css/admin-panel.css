@@ -1,0 +1,15 @@
+.admin-grid { display: grid; gap:1rem; }
+
+.two-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: .75rem; }
+
+.msg { margin-top: .5rem; font-size: .95rem; }
+.msg.error { color: #ff6b6b; }
+.msg.success { color: #2ecc71; }
+
+.logs-box { margin-top:1rem; }
+.logs-item { padding: .45rem .6rem; border-bottom:1px solid rgba(255,255,255,.15); }
+.logs-item .lvl { font-weight:700; margin-right: .4rem; }
+
+.delete-box { margin-top:1.2rem; }
+.prices-box { margin-top: .8rem; }
+.price-actions { display:flex; gap:8px; align-items:center; }

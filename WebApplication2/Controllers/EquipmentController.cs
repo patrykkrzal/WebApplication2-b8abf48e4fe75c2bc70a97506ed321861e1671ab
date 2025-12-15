@@ -14,6 +14,7 @@ using System.IO;
 using System;
 using System.Collections.Generic;
 using Rent.Interfaces;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Rent.Controllers
 {
@@ -24,12 +25,14 @@ namespace Rent.Controllers
  private readonly DataContext dbContext;
  private readonly IPriceResolver priceResolver;
  private readonly IWebHostEnvironment env;
+ private readonly IMemoryCache cache;
 
- public EquipmentController(DataContext dbContext, IPriceResolver priceResolver, IWebHostEnvironment env)
+ public EquipmentController(DataContext dbContext, IPriceResolver priceResolver, IWebHostEnvironment env, IMemoryCache cache)
  {
  this.dbContext = dbContext;
  this.priceResolver = priceResolver;
  this.env = env;
+ this.cache = cache;
  }
 
  [HttpGet]
@@ -155,6 +158,60 @@ namespace Rent.Controllers
 
  try
  {
+ // ensure global EquipmentPrice exists if price explicitly provided
+ var tnorm = typeStr.Trim();
+ var snorm = sizeStr.Trim();
+ EquipmentPrice? ep = null;
+ if (!string.IsNullOrWhiteSpace(tnorm) && !string.IsNullOrWhiteSpace(snorm))
+ {
+ ep = dbContext.EquipmentPrices.FirstOrDefault(x => x.Type.ToLower() == tnorm.ToLower() && x.Size.ToLower() == snorm.ToLower());
+ if (ep == null && price.HasValue)
+ {
+ ep = new EquipmentPrice { Type = tnorm, Size = snorm, Price = price.Value };
+ dbContext.EquipmentPrices.Add(ep);
+ dbContext.SaveChanges();
+ }
+ else if (ep != null && price.HasValue)
+ {
+ // update existing price to provided value
+ ep.Price = price.Value;
+ dbContext.SaveChanges();
+ }
+ else
+ {
+ ep = new EquipmentPrice { Type = tnorm, Size = snorm, Price = price.Value };
+ dbContext.EquipmentPrices.Add(ep);
+ dbContext.SaveChanges();
+ }
+
+ // assign EquipmentPriceId to existing Equipment items of same Type+Size so they use global price
+ try
+ {
+ var equipmentsToUpdate = dbContext.Equipment
+ .Where(e => e.Type == tnorm && e.Size == snorm && e.EquipmentPriceId != ep.Id)
+ .ToList();
+ if (equipmentsToUpdate.Any())
+ {
+ foreach (var eq in equipmentsToUpdate)
+ {
+ eq.EquipmentPriceId = ep.Id;
+ // clear per-item Price to avoid conflicting values (global price will be used)
+ eq.Price = null;
+ }
+ dbContext.SaveChanges();
+ }
+ }
+ catch { }
+
+ // clear cached resolved price if any
+ try
+ {
+ var key = "price_" + tnorm.ToLower() + "_" + snorm.ToLower();
+ cache.Remove(key);
+ }
+ catch { }
+ }
+
  var finalPrice = price ?? priceResolver.ResolvePrice(typeStr, sizeStr);
  var quantity = qty ??1;
 
@@ -183,6 +240,7 @@ namespace Rent.Controllers
  {
  if (int.TryParse(obj.ToString(), out var parsed)) newId = parsed;
  }
+ // when using SP we cannot set EquipmentPriceId here; ensure global price exists above so resolver uses it
  created.Add(new Equipment { Id = newId, Type = typeStr, Size = sizeStr, Is_In_Werehouse = true, Is_Reserved = false, Price = finalPrice, ImageUrl = imageUrl });
  }
  catch (SqlException sqlEx)
@@ -223,7 +281,9 @@ namespace Rent.Controllers
  Size = sizeStr,
  Is_In_Werehouse = true,
  Is_Reserved = false,
- Price = finalPrice,
+ // prefer linking to global EquipmentPrice when available
+ Price = ep == null ? finalPrice : (decimal?)null,
+ EquipmentPriceId = ep?.Id,
  ImageUrl = imageUrl
  };
  dbContext.Equipment.Add(item);
@@ -341,7 +401,6 @@ namespace Rent.Controllers
  }
  var publicUrl = Path.Combine("/uploads", fileName).Replace("\\","/");
 
- // Do NOT modify existing Equipment records here — return URL only.
  return Ok(new { Url = publicUrl });
  }
  catch (Exception ex)

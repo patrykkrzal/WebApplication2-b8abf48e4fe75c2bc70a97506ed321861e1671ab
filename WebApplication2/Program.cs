@@ -21,6 +21,7 @@ using Serilog.Sinks.MSSqlServer;
 using System.Collections.ObjectModel;
 using System.Security.Cryptography;
 using Rent.Interfaces;
+using Microsoft.AspNetCore.Authentication.Cookies;
 
 public class Program
 {
@@ -28,13 +29,12 @@ public class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
-        // Configure Serilog after builder is available so we can read connection string
+
         var logPath = Path.Combine(builder.Environment.ContentRootPath, "logs", "app-.log");
         var columnOptions = new ColumnOptions();
-        // remove Properties column if you don't want it
+     
         columnOptions.Store.Remove(StandardColumn.Properties);
-        // NOTE: MessageTemplate is included by default in ColumnOptions.Store; do NOT add it again — causes duplicate column error
-        // columnOptions.Store.Add(StandardColumn.MessageTemplate); // removed to avoid DuplicateNameException
+ 
         columnOptions.AdditionalColumns = new Collection<SqlColumn>
         {
             new SqlColumn("UserId", System.Data.SqlDbType.NVarChar, dataLength:450),
@@ -76,8 +76,7 @@ public class Program
         }
         else
         {
-            // No per-user override: use the DefaultConnection from configuration or environment as-is.
-            // If you want per-user LocalDB behavior, enable it explicitly via configuration.
+     
         }
 
         Console.WriteLine("Connection string: " + builder.Configuration.GetConnectionString("DefaultConnection"));
@@ -134,6 +133,43 @@ public class Program
             // Serve the app's static login page instead of default /Account/Login
             options.LoginPath = "/Login.html";
             options.AccessDeniedPath = "/Login.html";
+
+            // For API requests return status codes instead of redirecting to HTML login page
+            options.Events = new CookieAuthenticationEvents
+            {
+                OnRedirectToLogin = ctx =>
+                {
+                    var isApiRequest = ctx.Request.Path.StartsWithSegments("/api")
+                    || ctx.Request.Headers["Accept"].ToString().Contains("application/json")
+                    || string.Equals(ctx.Request.Headers["X-Requested-With"], "XMLHttpRequest", StringComparison.OrdinalIgnoreCase);
+
+                    if (isApiRequest)
+                    {
+                        ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    }
+                    else
+                    {
+                        ctx.Response.Redirect(ctx.RedirectUri);
+                    }
+                    return Task.CompletedTask;
+                },
+                OnRedirectToAccessDenied = ctx =>
+                {
+                    var isApiRequest = ctx.Request.Path.StartsWithSegments("/api")
+                    || ctx.Request.Headers["Accept"].ToString().Contains("application/json")
+                    || string.Equals(ctx.Request.Headers["X-Requested-With"], "XMLHttpRequest", StringComparison.OrdinalIgnoreCase);
+
+                    if (isApiRequest)
+                    {
+                        ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    }
+                    else
+                    {
+                        ctx.Response.Redirect(ctx.RedirectUri);
+                    }
+                    return Task.CompletedTask;
+                }
+            };
         });
 
         builder.Services.AddAuthorization(options =>
@@ -270,7 +306,7 @@ public class Program
             }
             catch (SqlException sqlEx)
             {
-                // If object already exists (2714), log and continue with next batch instead of failing whole migration.
+            
                 if (sqlEx.Number == 2714)
                 {
                     var snippet = batch.Length > 1000 ? batch.Substring(0, 1000) + "\n... (truncated)" : batch;
@@ -282,7 +318,6 @@ public class Program
                     continue;
                 }
 
-                // For other SQL exceptions, provide debug snippet and rethrow
                 var snippet2 = batch.Length > 1000 ? batch.Substring(0, 1000) + "\n... (truncated)" : batch;
                 Console.Error.WriteLine($"Failed executing SQL batch #{i + 1}/{batches.Length}: {sqlEx.Message}");
                 Console.Error.WriteLine("--- Begin failing batch ---");
@@ -292,7 +327,7 @@ public class Program
             }
             catch (Exception ex)
             {
-                // Log the batch index and a snippet of the failing SQL to help debugging
+            
                 var snippet = batch.Length > 1000 ? batch.Substring(0, 1000) + "\n... (truncated)" : batch;
                 Console.Error.WriteLine($"Failed executing SQL batch #{i + 1}/{batches.Length}: {ex.Message}");
                 Console.Error.WriteLine("--- Begin failing batch ---");
@@ -300,23 +335,6 @@ public class Program
                 Console.Error.WriteLine("--- End failing batch ---");
                 throw;
             }
-        }
-    }
-
-    private static string GenerateTemporaryPassword(int length = 12)
-    {
-        const string chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_";
-        using (var rng = RandomNumberGenerator.Create())
-        {
-            var data = new byte[length];
-            rng.GetBytes(data);
-            var result = new char[length];
-            for (int i = 0; i < length; i++)
-            {
-                var idx = data[i] % chars.Length;
-                result[i] = chars[idx];
-            }
-            return new string(result);
         }
     }
 }
