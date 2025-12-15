@@ -2,10 +2,11 @@ using System.Data;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
+using Rent.Interfaces;
 
 namespace Rent.Services
 {
- public class OrderSqlService
+ public class OrderSqlService : IOrderSqlService
  {
  private readonly IConfiguration _cfg;
  public OrderSqlService(IConfiguration cfg) => _cfg = cfg;

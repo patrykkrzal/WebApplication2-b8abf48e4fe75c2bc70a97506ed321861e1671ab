@@ -19,6 +19,8 @@ using Serilog.Events;
 using Serilog.Formatting.Json;
 using Serilog.Sinks.MSSqlServer;
 using System.Collections.ObjectModel;
+using System.Security.Cryptography;
+using Rent.Interfaces;
 
 public class Program
 {
@@ -96,9 +98,9 @@ public class Program
 
         builder.Services.AddMemoryCache();
         builder.Services.AddScoped<IPriceResolver, EfPriceResolver>();
-        builder.Services.AddScoped<OrderSqlService>();
-        builder.Services.AddScoped<EquipmentStateService>();
-        builder.Services.AddScoped<OrderService>();
+        builder.Services.AddScoped<IOrderSqlService, OrderSqlService>();
+        builder.Services.AddScoped<IEquipmentStateService, EquipmentStateService>();
+        builder.Services.AddScoped<IOrderService, OrderService>();
 
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen(c =>
@@ -129,6 +131,9 @@ public class Program
             options.Cookie.HttpOnly = true;
             options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
             options.Cookie.SameSite = SameSiteMode.Lax;
+            // Serve the app's static login page instead of default /Account/Login
+            options.LoginPath = "/Login.html";
+            options.AccessDeniedPath = "/Login.html";
         });
 
         builder.Services.AddAuthorization(options =>
@@ -166,7 +171,8 @@ public class Program
             if (sqlPath != null)
             {
                 var script = await File.ReadAllTextAsync(sqlPath);
-                await ExecuteSqlScriptBatchedAsync(builder.Configuration.GetConnectionString("DefaultConnection"), script);
+                var connStrLocal = builder.Configuration.GetConnectionString("DefaultConnection") ?? string.Empty;
+                await ExecuteSqlScriptBatchedAsync(connStrLocal, script);
                 Console.WriteLine($"Executed DatabaseObjects.sql from '{sqlPath}'.");
 
                 var seeder = scope.ServiceProvider.GetRequiredService<Seed>();
@@ -220,6 +226,25 @@ public class Program
 
         app.UseRouting();
         app.UseAuthentication();
+        // Intercept default Identity redirects to /Account/Login and rewrite to static /Login.html
+        app.Use(async (context, next) =>
+        {
+            await next();
+            try
+            {
+                if (context.Response.StatusCode == 302 && context.Response.Headers.ContainsKey("Location"))
+                {
+                    var loc = context.Response.Headers["Location"].ToString();
+                    if (!string.IsNullOrEmpty(loc) && loc.IndexOf("/Account/Login", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        // Replace the Identity UI path with the app's static login page
+                        var newLoc = loc.Replace("/Account/Login", "/Login.html");
+                        context.Response.Headers["Location"] = newLoc;
+                    }
+                }
+            }
+            catch { }
+        });
         app.UseAuthorization();
         app.MapControllers();
         app.MapIdentityApi<User>();
@@ -235,7 +260,7 @@ public class Program
             .ToArray();
         using var conn = new SqlConnection(connectionString);
         await conn.OpenAsync();
-        for (var i =0; i < batches.Length; i++)
+        for (var i = 0; i < batches.Length; i++)
         {
             var batch = batches[i];
             try
@@ -246,10 +271,10 @@ public class Program
             catch (SqlException sqlEx)
             {
                 // If object already exists (2714), log and continue with next batch instead of failing whole migration.
-                if (sqlEx.Number ==2714)
+                if (sqlEx.Number == 2714)
                 {
-                    var snippet = batch.Length >1000 ? batch.Substring(0,1000) + "\n... (truncated)" : batch;
-                    Console.Error.WriteLine($"Skipping SQL batch #{i +1}/{batches.Length} due to existing object (SQL Error2714): {sqlEx.Message}");
+                    var snippet = batch.Length > 1000 ? batch.Substring(0, 1000) + "\n... (truncated)" : batch;
+                    Console.Error.WriteLine($"Skipping SQL batch #{i + 1}/{batches.Length} due to existing object (SQL Error2714): {sqlEx.Message}");
                     Console.Error.WriteLine("--- Begin skipped batch ---");
                     Console.Error.WriteLine(snippet);
                     Console.Error.WriteLine("--- End skipped batch ---");
@@ -258,8 +283,8 @@ public class Program
                 }
 
                 // For other SQL exceptions, provide debug snippet and rethrow
-                var snippet2 = batch.Length >1000 ? batch.Substring(0,1000) + "\n... (truncated)" : batch;
-                Console.Error.WriteLine($"Failed executing SQL batch #{i +1}/{batches.Length}: {sqlEx.Message}");
+                var snippet2 = batch.Length > 1000 ? batch.Substring(0, 1000) + "\n... (truncated)" : batch;
+                Console.Error.WriteLine($"Failed executing SQL batch #{i + 1}/{batches.Length}: {sqlEx.Message}");
                 Console.Error.WriteLine("--- Begin failing batch ---");
                 Console.Error.WriteLine(snippet2);
                 Console.Error.WriteLine("--- End failing batch ---");
@@ -268,8 +293,8 @@ public class Program
             catch (Exception ex)
             {
                 // Log the batch index and a snippet of the failing SQL to help debugging
-                var snippet = batch.Length >1000 ? batch.Substring(0,1000) + "\n... (truncated)" : batch;
-                Console.Error.WriteLine($"Failed executing SQL batch #{i +1}/{batches.Length}: {ex.Message}");
+                var snippet = batch.Length > 1000 ? batch.Substring(0, 1000) + "\n... (truncated)" : batch;
+                Console.Error.WriteLine($"Failed executing SQL batch #{i + 1}/{batches.Length}: {ex.Message}");
                 Console.Error.WriteLine("--- Begin failing batch ---");
                 Console.Error.WriteLine(snippet);
                 Console.Error.WriteLine("--- End failing batch ---");
@@ -278,18 +303,20 @@ public class Program
         }
     }
 
-    private static string GenerateTemporaryPassword(int length =12)
+    private static string GenerateTemporaryPassword(int length = 12)
     {
         const string chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_";
-        var rnd = new System.Security.Cryptography.RNGCryptoServiceProvider();
-        var data = new byte[length];
-        rnd.GetBytes(data);
-        var result = new char[length];
-        for (int i =0; i < length; i++)
+        using (var rng = RandomNumberGenerator.Create())
         {
-            var idx = data[i] % chars.Length;
-            result[i] = chars[idx];
+            var data = new byte[length];
+            rng.GetBytes(data);
+            var result = new char[length];
+            for (int i = 0; i < length; i++)
+            {
+                var idx = data[i] % chars.Length;
+                result[i] = chars[idx];
+            }
+            return new string(result);
         }
-        return new string(result);
     }
 }

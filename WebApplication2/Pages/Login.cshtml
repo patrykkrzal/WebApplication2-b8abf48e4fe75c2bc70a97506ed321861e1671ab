@@ -5,88 +5,93 @@
 
 <style>
 
-.form-box { background: transparent !important; box-shadow: none !important; padding:0 !important; margin-top:12px !important; }
+    .form-box {
+        background: transparent !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin-top: 12px !important;
+    }
 </style>
 
 <h1 class="winter-title">🔐 Logowanie</h1>
 <form id="loginForm" class="form-box" novalidate>
- <div class="mb-3">
- <label>
- Email
- <input type="text" name="Email" required class="form-control" />
- </label>
- </div>
- <div class="mb-3">
- <label>
- Hasło
- <input type="password" name="Password" required class="form-control" />
- </label>
- </div>
- <button type="submit" class="submit-btn">Zaloguj</button>
- <div id="loginMsg" class="msg"></div>
- <div class="alt-link" data-hide-when-auth="true" style="margin-top:.6rem;">
- Nie masz konta? <a href="/Register.html">Zarejestruj się</a>
- </div>
+    <div class="mb-3">
+        <label>
+            Email
+            <input type="text" name="Email" required class="form-control" />
+        </label>
+    </div>
+    <div class="mb-3">
+        <label>
+            Hasło
+            <input type="password" name="Password" required class="form-control" />
+        </label>
+    </div>
+    <button type="submit" class="submit-btn">Zaloguj</button>
+    <div id="loginMsg" class="msg"></div>
+    <div class="alt-link" data-hide-when-auth="true" style="margin-top:.6rem;">
+        Nie masz konta? <a href="/Register.html">Zarejestruj się</a>
+    </div>
 </form>
 
 @section Scripts {
-<script>
-(function(){
- const form = document.getElementById('loginForm');
- const msg = document.getElementById('loginMsg');
- const apiBase = (window.__rent && window.__rent.apiBase) ? window.__rent.apiBase : '';
+    <script>
+        (function () {
+            const form = document.getElementById('loginForm');
+            const msg = document.getElementById('loginMsg');
+            const apiBase = (window.__rent && window.__rent.apiBase) ? window.__rent.apiBase : '';
 
- form.addEventListener('submit', async e => {
- e.preventDefault();
- msg.className = 'msg';
- msg.textContent = 'Logowanie...';
+            form.addEventListener('submit', async e => {
+                e.preventDefault();
+                msg.className = 'msg';
+                msg.textContent = 'Logowanie...';
 
- const data = Object.fromEntries(new FormData(form));
+                const data = Object.fromEntries(new FormData(form));
 
- try {
- const res = await fetch(`${apiBase}/api/auth/login`, {
- method: 'POST',
- headers: { 'Content-Type': 'application/json' },
- body: JSON.stringify(data),
- credentials: 'include'
- });
+                try {
+                    const res = await fetch(`${apiBase}/api/auth/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data),
+                        credentials: 'include'
+                    });
 
- const raw = await res.text();
- let parsed;
- try { parsed = JSON.parse(raw); } catch { parsed = raw; }
+                    const raw = await res.text();
+                    let parsed;
+                    try { parsed = JSON.parse(raw); } catch { parsed = raw; }
 
- if (!res.ok) {
- // If server returned model validation with Email error, show friendly message
- try {
- const errors = parsed && parsed.errors ? parsed.errors : (parsed && parsed.Errors ? parsed.Errors : null);
- if (errors && (errors.Email || errors.email)) {
- msg.className = 'msg error';
- msg.textContent = 'Błędny email lub hasło';
- return;
- }
- } catch { /* ignore */ }
+                    if (!res.ok) {
+                        // If server returned model validation with Email error, show friendly message
+                        try {
+                            const errors = parsed && parsed.errors ? parsed.errors : (parsed && parsed.Errors ? parsed.Errors : null);
+                            if (errors && (errors.Email || errors.email)) {
+                                msg.className = 'msg error';
+                                msg.textContent = 'Błędny email lub hasło';
+                                return;
+                            }
+                        } catch { /* ignore */ }
 
- // if server sent a message field, show it
- if (parsed && (parsed.Message || parsed.message)) {
- msg.className = 'msg error';
- msg.textContent = parsed.Message || parsed.message;
- return;
- }
- 
- // fallback
- const errText = (typeof parsed === 'string') ? parsed : JSON.stringify(parsed);
- throw new Error(errText);
- }
+                        // if server sent a message field, show it
+                        if (parsed && (parsed.Message || parsed.message)) {
+                            msg.className = 'msg error';
+                            msg.textContent = parsed.Message || parsed.message;
+                            return;
+                        }
 
- msg.className = 'msg success';
- msg.textContent = 'Logowanie pomyślne';
- // redirect to home
- window.location.href = '/';
- } catch (err) {
- msg.className = 'msg error';
- msg.textContent = 'Błąd: ' + (err.message || err);
- }
- });
-})();
-</script>
+                        // fallback
+                        const errText = (typeof parsed === 'string') ? parsed : JSON.stringify(parsed);
+                        throw new Error(errText);
+                    }
+
+                    msg.className = 'msg success';
+                    msg.textContent = 'Logowanie pomyślne';
+                    // redirect to home
+                    window.location.href = '/';
+                } catch (err) {
+                    msg.className = 'msg error';
+                    msg.textContent = 'Błąd: ' + (err.message || err);
+                }
+            });
+        })();
+    </script>
 }

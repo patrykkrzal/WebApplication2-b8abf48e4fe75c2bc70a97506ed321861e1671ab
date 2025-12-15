@@ -155,6 +155,29 @@ namespace Rent.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("Rent.DTO.OrderLogDto", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("LogDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("OrderLogDtos");
+                });
+
             modelBuilder.Entity("Rent.Models.Equipment", b =>
                 {
                     b.Property<int>("Id")
@@ -163,26 +186,39 @@ namespace Rent.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("EquipmentPriceId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<bool>("Is_In_Werehouse")
                         .HasColumnType("bit");
 
                     b.Property<bool>("Is_Reserved")
                         .HasColumnType("bit");
 
-                    b.Property<decimal>("Price")
+                    b.Property<decimal?>("Price")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int?>("RentalInfoId")
                         .HasColumnType("int");
 
-                    b.Property<int>("Size")
-                        .HasColumnType("int");
+                    b.Property<string>("Size")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
-                    b.Property<int>("Type")
-                        .HasColumnType("int");
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EquipmentPriceId");
 
                     b.HasIndex("RentalInfoId");
 
@@ -204,11 +240,15 @@ namespace Rent.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<int>("Size")
-                        .HasColumnType("int");
+                    b.Property<string>("Size")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
-                    b.Property<int>("Type")
-                        .HasColumnType("int");
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.HasKey("Id");
 
@@ -272,32 +312,6 @@ namespace Rent.Migrations
                         });
 
                     b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
-                });
-
-            modelBuilder.Entity("Rent.Models.OrderLog", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("LogDate")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("SYSUTCDATETIME()");
-
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasMaxLength(4000)
-                        .HasColumnType("nvarchar(4000)");
-
-                    b.Property<int>("OrderId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("OrderLogs", (string)null);
                 });
 
             modelBuilder.Entity("Rent.Models.OrderedItem", b =>
@@ -556,9 +570,16 @@ namespace Rent.Migrations
 
             modelBuilder.Entity("Rent.Models.Equipment", b =>
                 {
+                    b.HasOne("Rent.Models.EquipmentPrice", "EquipmentPrice")
+                        .WithMany("Equipments")
+                        .HasForeignKey("EquipmentPriceId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Rent.Models.RentalInfo", "RentalInfo")
                         .WithMany("Equipment")
                         .HasForeignKey("RentalInfoId");
+
+                    b.Navigation("EquipmentPrice");
 
                     b.Navigation("RentalInfo");
                 });
@@ -620,6 +641,11 @@ namespace Rent.Migrations
             modelBuilder.Entity("Rent.Models.Equipment", b =>
                 {
                     b.Navigation("OrderedItems");
+                });
+
+            modelBuilder.Entity("Rent.Models.EquipmentPrice", b =>
+                {
+                    b.Navigation("Equipments");
                 });
 
             modelBuilder.Entity("Rent.Models.Order", b =>

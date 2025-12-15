@@ -1,4 +1,33 @@
-﻿/* Dark winter theme (restored background and transparent buttons) */
+﻿/* Strong global rule to remove any underline/underline-like visuals on links (including framework overrides) */
+/* Place at top or end of site.css so it overrides other styles. Uses !important to defeat other rules. */
+
+/* basic anchor reset */
+a, a:link, a:visited, a:hover, a:active, a:focus {
+ text-decoration: none !important;
+ -webkit-text-decoration-skip-ink: none !important;
+ text-decoration-skip-ink: none !important;
+ text-underline-offset:0 !important;
+ text-decoration-thickness: auto !important;
+ outline: none !important; /* keep accessibility but remove outline if undesired */
+ box-shadow: none !important;
+ border-bottom: none !important;
+ background-image: none !important; /* frameworks sometimes use gradient/linear to draw underline */
+}
+
+/* Ensure children inside links also don't draw underlines or borders */
+a * {
+ text-decoration: none !important;
+ box-shadow: none !important;
+ border-bottom: none !important;
+}
+
+/* If you want keyboard focus visible for accessibility, enable some visible focus style instead of outline removal */
+:focus-visible {
+ outline:2px solid rgba(0,123,255,0.5) !important;
+ outline-offset:2px !important;
+}
+
+/* Dark winter theme (restored background and transparent buttons) */
 :root {
  --topbar-offset:140px;
  --topbar-height:80px;
@@ -92,7 +121,7 @@ body::before {
 
 .winter-button:hover {
  color: #ffffff;
- text-decoration: underline;
+ text-decoration: none !important;
 }
 
 /* Content wrapper centered below the buttons (consolidated) */
@@ -199,9 +228,9 @@ details.user-panel summary.winter-button {
 }
 
 details.user-panel summary.winter-button:hover {
- /* reuse hover behavior similar to .winter-button */
+ /* reuse hover behavior similar to .winter-button, but do not underline */
  color: #ffffff;
- text-decoration: underline;
+ text-decoration: none !important;
 }
 
 .user-panel-menu {
@@ -330,3 +359,35 @@ details.user-panel summary.winter-button:hover {
 .content-section .form-box,
 .content-section .split-actions,
 .content-section .equipment-slider { margin-top:12px; }
+
+/* Remove underline from links globally and on hover/focus */
+/* Placed in site.css so it applies across the app */
+
+/* Remove default underline */
+a {
+ text-decoration: none !important;
+}
+
+/* Ensure no underline on hover/focus and avoid focus outline if undesired */
+a:hover,
+a:focus,
+a:active {
+ text-decoration: none !important;
+ outline: none !important;
+}
+
+/* Optional: keep keyboard accessibility visible by showing a subtle box-shadow on focus */
+a:focus {
+ box-shadow:0003px rgba(0,123,255,0.15);
+ border-radius:3px;
+}
+
+/* Additional overrides for persistent underlines (pseudo-elements, framework styles) */
+a::before, a::after, a *::before, a *::after,
+a:hover::before, a:hover::after, a:focus::before, a:focus::after {
+ content: none !important;
+ background: none !important;
+ background-image: none !important;
+ box-shadow: none !important;
+ border-bottom:0 !important;
+}

@@ -6,6 +6,8 @@ using Rent.DTO; // LoginUserDTO
 using System.Security.Claims;
 using System.Threading.Tasks;
 using System.Linq;
+using Microsoft.EntityFrameworkCore;
+using Rent.Data; // DataContext
 
 namespace Rent.Controllers
 {
@@ -15,11 +17,13 @@ namespace Rent.Controllers
     {
         private readonly SignInManager<User> _signInManager;
         private readonly UserManager<User> _userManager;
+        private readonly DataContext _db;
 
-        public AuthController(SignInManager<User> signInManager, UserManager<User> userManager)
+        public AuthController(SignInManager<User> signInManager, UserManager<User> userManager, DataContext db)
         {
             _signInManager = signInManager;
             _userManager = userManager;
+            _db = db;
         }
 
         [HttpPost("login")]
@@ -28,12 +32,14 @@ namespace Rent.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            // Authenticate by email: find user by email, then sign in by username
+            // authenticate
             var user = await _userManager.FindByEmailAsync(dto.Email);
             if (user == null)
                 return Unauthorized(new { Message = "Invalid email or password" });
 
-            var result = await _signInManager.PasswordSignInAsync(user.UserName, dto.Password, isPersistent: false, lockoutOnFailure: false);
+            // Use non-null username fallback to email to avoid nullable warnings
+            var userNameForSignIn = user.UserName ?? user.Email ?? string.Empty;
+            var result = await _signInManager.PasswordSignInAsync(userNameForSignIn, dto.Password, isPersistent: false, lockoutOnFailure: false);
             if (!result.Succeeded)
                 return Unauthorized(new { Message = "Invalid email or password" });
 
@@ -74,7 +80,7 @@ namespace Rent.Controllers
             return Ok(new { Message = "Logout successful" });
         }
 
-        // Endpoint do pobrania bieżącego użytkownika i jego ról 
+        // get current user
         [Authorize]
         [HttpGet("me")]
         public async Task<IActionResult> Me()
@@ -88,14 +94,32 @@ namespace Rent.Controllers
                 return NotFound();
 
             var roles = await _userManager.GetRolesAsync(user);
+
+            // fill names
+            string firstName = user.First_name;
+            string lastName = user.Last_name;
+            try
+            {
+                if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
+                {
+                    var worker = await _db.Workers.FirstOrDefaultAsync(w => w.Email.ToLower() == (user.Email ?? string.Empty).ToLower());
+                    if (worker != null)
+                    {
+                        if (string.IsNullOrWhiteSpace(firstName)) firstName = worker.First_name;
+                        if (string.IsNullOrWhiteSpace(lastName)) lastName = worker.Last_name;
+                    }
+                }
+            }
+            catch { }
+
             return Ok(new
             {
                 user.Id,
                 user.UserName,
                 user.Email,
                 user.PhoneNumber,
-                user.First_name,
-                user.Last_name,
+                First_name = firstName,
+                Last_name = lastName,
                 user.Login,
                 Roles = roles
             });

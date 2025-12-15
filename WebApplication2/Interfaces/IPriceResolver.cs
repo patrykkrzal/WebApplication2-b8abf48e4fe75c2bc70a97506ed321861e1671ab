@@ -1,9 +1,7 @@
-using Rent.Enums;
-
-namespace Rent.Services
+namespace Rent.Interfaces
 {
  public interface IPriceResolver
  {
- decimal ResolvePrice(EquipmentType type, Size size);
+ decimal ResolvePrice(string type, string size);
  }
 }

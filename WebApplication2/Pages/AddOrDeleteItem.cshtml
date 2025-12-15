@@ -1,4 +1,6 @@
 ﻿@page "/AddOrDeleteItem.html"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin")]
 @{
  ViewData["Title"] = "Dodaj / Usuń sprzęt";
 }
@@ -6,6 +8,65 @@
 <style>
 
 .form-box { background: transparent !important; box-shadow: none !important; padding:0 !important; margin-top:12px !important; }
+.avail-table { margin-top:18px; width:100%; border-collapse:collapse; table-layout: fixed; }
+.avail-table th, .avail-table td { padding:8px10px; border-bottom:1px solid rgba(255,255,255,0.06); text-align:left; vertical-align:middle; }
+/* fixed column widths (percentages) */
+.avail-table th:nth-child(1), .avail-table td:nth-child(1) { width:28%; }
+.avail-table th:nth-child(2), .avail-table td:nth-child(2) { width:16%; }
+.avail-table th:nth-child(3), .avail-table td:nth-child(3) { width:12%; }
+.avail-table th:nth-child(4), .avail-table td:nth-child(4) { width:44%; }
+
+.avail-qty { width:72px; }
+.price-input { /* make price input full width and match .form-control */
+ width:100%; box-sizing:border-box; }
+
+/* Mode buttons row: compact, single-line */
+.mode-buttons { display:flex; gap:8px; align-items:center; flex-wrap:nowrap; margin-top:8px; overflow-x:auto; }
+.mode-buttons .winter-button { min-width:110px; padding:6px10px; font-size:0.92rem; }
+
+/* Small winter buttons (used for actions) */
+.winter-button.small { height:34px; padding:6px10px; font-size:0.92rem; }
+.winter-button.small.danger { background: linear-gradient(180deg, #7f1d1d, #5f0f0f); border-color: rgba(0,0,0,0.25); }
+
+/* Make inputs visually match theme and be uniform */
+.form-control, .price-input, .avail-qty, select.form-control, input[type="file"].form-control {
+ display:block; width:100%; box-sizing:border-box; background: rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.06); color: #fff; padding:10px12px; border-radius:8px; height:42px;
+}
+/* File input: allow text to show and match height */
+input[type="file"].form-control { padding:6px12px; height:auto; }
+
+/* Style selects to match inputs/buttons */
+select.form-control, select.form-control:focus {
+ background: rgba(0,0,0,0.35);
+ border:1px solid rgba(255,255,255,0.06);
+ color: #fff;
+ padding:8px12px;
+ border-radius:8px;
+ -webkit-appearance: none;
+ -moz-appearance: none;
+ appearance: none;
+}
+/* add a subtle down-arrow using CSS gradients positioned on the right */
+select.form-control {
+ background-image: linear-gradient(45deg, transparent50%, rgba(255,255,255,0.9)50%), linear-gradient(135deg, rgba(255,255,255,0.9)50%, transparent50%);
+ background-position: calc(100% -12px) calc(50% -3px), calc(100% -6px) calc(50% -3px);
+ background-size:6px6px,6px6px;
+ background-repeat: no-repeat;
+}
+
+/* Truncate long text with ellipsis */
+.cell-truncate { display: inline-block; width:100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Responsive: on narrow screens allow wrapping */
+@@media (max-width:720px) {
+ .avail-table { table-layout: auto; }
+ .cell-truncate { white-space: normal; }
+ .mode-buttons { flex-wrap:wrap; }
+ .avail-table th:nth-child(1), .avail-table td:nth-child(1),
+ .avail-table th:nth-child(2), .avail-table td:nth-child(2),
+ .avail-table th:nth-child(3), .avail-table td:nth-child(3),
+ .avail-table th:nth-child(4), .avail-table td:nth-child(4) { width: auto; }
+}
 </style>
 
 <h1 class="winter-title">Zarządzanie sprzętem</h1>
@@ -15,290 +76,171 @@
  <details class="user-panel" id="addPanel" open>
  <summary class="winter-button" aria-label="Dodaj sprzęt">➕ / ➖ Sprzęt</summary>
 
- <form id="addItemForm" class="form-box" novalidate>
- <div class="mb-3>
+ <!-- Top: three mode buttons -->
+ <div class="form-box">
+ <div class="mode-buttons">
+ <button type="button" id="modeCreate" class="winter-button">Stwórz przedmiot</button>
+ <button type="button" id="modeAddSize" class="winter-button">Dodaj rozmiar</button>
+ <button type="button" id="modeQuick" class="winter-button">Usuń / Dodaj (szybko)</button>
+ </div>
+ </div>
+
+ <!-- Panels (hidden until mode chosen) -->
+ <div id="panelCreate" style="display:none; margin-top:12px;">
+ <!-- existing create form fields (type free, size, qty, price, image) -->
+ <div class="mb-3" id="typeFreeWrap">
  <label for="type">Rodzaj sprzętu</label>
- <select id="type" name="Type" class="form-select" required>
- <option value="">-- wybierz --</option>
- <option value="Skis">Narty</option>
- <option value="Helmet">Kask</option>
- <option value="Gloves">Rękawice</option>
- <option value="Poles">Kijki</option>
- <option value="Snowboard">Snowboard</option>
- <option value="Goggles">Gogle</option>
- </select>
+ <input id="type" name="Type" list="typeList" class="form-control" placeholder="Wpisz lub wybierz typ" />
+ <datalist id="typeList"></datalist>
  </div>
-
  <div class="mb-3">
- <label for="size">Rozmiar <span id="sizeAvailable" style="font-weight:600; margin-left:8px; color:var(--btn-text);"></span></label>
- <select id="size" name="Size" class="form-select" required disabled>
- <option value="">Najpierw wybierz typ</option>
- </select>
- <div id="sizeHint" class="form-text">
- Dostępne rozmiary zależą od wybranego typu i stanie magazynowym.
+ <label for="size">Rozmiar</label>
+ <input id="size" name="Size" list="sizeList" class="form-control" placeholder="Wpisz lub wybierz rozmiar" />
+ <datalist id="sizeList"></datalist>
  </div>
- </div>
-
  <div class="mb-3">
  <label for="quantity">Ilość</label>
  <input id="quantity" name="Quantity" type="number" min="1" value="1" class="form-control" />
  </div>
-
- <div class="dual-actions">
- <button type="button" class="submit-btn" id="btnAdd">➕ Dodaj</button>
- <button type="button" class="submit-btn delete-btn" id="btnDelete">➖ Usuń</button>
+ <div class="mb-3" id="priceWrapCreate">
+ <label for="price">Cena</label>
+ <input id="price" name="Price" type="number" step="0.01" class="form-control price-input" required />
+ </div>
+ <div class="mb-3" id="imageWrapCreate">
+ <label for="imageFile">Zdjęcie (wymagane)</label>
+ <input id="imageFile" name="imageFile" type="file" accept="image/*" class="form-control" required />
+ <div id="uploadStatus" class="form-text" style="margin-top:6px"></div>
+ </div>
+ <div style="display:flex; gap:8px;">
+ <button id="createAdd" class="winter-button small">➕ Dodaj przedmiot</button>
+ <button id="createCancel" class="winter-button small">Anuluj</button>
+ </div>
  </div>
 
- <div id="msg" class="msg"></div>
- </form>
+ <div id="panelAddSize" style="display:none; margin-top:12px;">
+ <!-- Add size: choose existing type, size and quantity; no image, now include price -->
+ <div class="mb-3">
+ <label for="existingTypeSelect">Wybierz typ</label>
+ <select id="existingTypeSelect" class="form-control"><option value="">-- wybierz --</option></select>
+ </div>
+ <div class="mb-3">
+ <label for="newSize">Nowy rozmiar</label>
+ <input id="newSize" class="form-control" />
+ </div>
+ <div class="mb-3">
+ <label for="newQty">Ilość</label>
+ <input id="newQty" type="number" min="1" value="1" class="form-control" />
+ </div>
+ <div class="mb-3">
+ <label for="newPrice">Cena</label>
+ <input id="newPrice" type="number" step="0.01" min="0" class="form-control price-input" required />
+ </div>
+ <div style="display:flex; gap:8px;">
+ <button id="addSizeBtn" class="winter-button small">➕ Dodaj rozmiar</button>
+ <button id="addSizeCancel" class="winter-button small">Anuluj</button>
+ </div>
+ </div>
+
+ <div id="panelQuick" style="display:none; margin-top:12px;">
+ <!-- Quick add/remove: select type->size, quantity, Add/Remove buttons -->
+ <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+ <select id="quickType" class="form-control" style="width:30%;"><option value="">Wybierz typ</option></select>
+ <select id="quickSize" class="form-control" style="width:20%;"><option value="">Wybierz rozmiar</option></select>
+ <input id="quickQty" type="number" min="1" value="1" class="form-control" style="width:80px;" />
+ <button id="quickAddBtn" class="winter-button small">+ Dodaj</button>
+ <button id="quickRemBtn" class="winter-button small danger">- Usuń</button>
+ </div>
+ </div>
+
+ <!-- Availability table remains below -->
+ <div class="availability-box" style="margin-top:14px;">
+ <h2>Dostępność</h2>
+ <div id="availabilityContainer"></div>
+ </div>
+
  </details>
 </div>
 
 @section Scripts {
- <script>
- (function(){
+<script>
+(async function(){
  const apiBase = (window.__rent && window.__rent.apiBase) ? window.__rent.apiBase : '';
+ // mode toggling
+ const btnCreate = document.getElementById('modeCreate');
+ const btnAddSize = document.getElementById('modeAddSize');
+ const btnQuick = document.getElementById('modeQuick');
+ const panelCreate = document.getElementById('panelCreate');
+ const panelAddSize = document.getElementById('panelAddSize');
+ const panelQuick = document.getElementById('panelQuick');
+ function hideAllPanels(){ panelCreate.style.display='none'; panelAddSize.style.display='none'; panelQuick.style.display='none'; }
+ function setMode(mode){ hideAllPanels(); if(mode==='create') panelCreate.style.display=''; else if(mode==='addsize') panelAddSize.style.display=''; else if(mode==='quick') panelQuick.style.display=''; }
+ btnCreate.addEventListener('click', ()=> setMode('create'));
+ btnAddSize.addEventListener('click', ()=> setMode('addsize'));
+ btnQuick.addEventListener('click', ()=> setMode('quick'));
 
- function toDto() {
- const type = document.getElementById('type').value;
- const size = document.getElementById('size').value;
- const qtyRaw = document.getElementById('quantity').value;
- return { Type: type, Size: size, Quantity: qtyRaw ? parseInt(qtyRaw) :1 };
+ // helpers: fetch availability and prices
+ async function getAvailability(){ try{ const res = await fetch(`${apiBase}/api/equipment/availability`,{credentials:'include'}); if(!res.ok) return []; return await res.json(); }catch{return [];} }
+ async function getPrices(){ try{ const res = await fetch(`${apiBase}/api/equipment/prices`,{credentials:'include'}); if(!res.ok) return []; return await res.json(); }catch{return [];} }
+ async function postJson(url, body){ const res = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify(body)}); let txt=await res.text(); try{ return JSON.parse(txt);}catch{return txt;} }
+ async function deleteJson(url, body){ const res = await fetch(url,{method:'DELETE',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify(body)}); let txt=await res.text(); try{ return JSON.parse(txt);}catch{return txt;} }
+
+ // build availability map and populate selects
+ let availability = [];
+ function buildAvailabilityMap(items){ availability = items || []; const types = new Set(); availability.forEach(x=>{ if(x.Type) types.add(x.Type); }); // populate lists
+ const dl = document.getElementById('typeList'); if(dl){ dl.innerHTML=''; Array.from(types).sort((a,b)=>String(a).localeCompare(b,'pl',{sensitivity:'base'})).forEach(t=>{ const opt=document.createElement('option'); opt.value=t; dl.appendChild(opt); }); }
+ const existingSel = document.getElementById('existingTypeSelect'); if(existingSel){ existingSel.innerHTML='<option value="">-- wybierz --</option>'; Array.from(types).sort((a,b)=>String(a).localeCompare(b,'pl',{sensitivity:'base'})).forEach(t=>{ const opt=document.createElement('option'); opt.value=t; opt.textContent=t; existingSel.appendChild(opt); }); }
+ const quickType = document.getElementById('quickType'); if(quickType){ quickType.innerHTML='<option value="">Wybierz typ</option>'; Array.from(types).sort((a,b)=>String(a).localeCompare(b,'pl',{sensitivity:'base'})).forEach(t=>{ const opt=document.createElement('option'); opt.value=t; opt.textContent=t; quickType.appendChild(opt); }); }
  }
 
- async function postJson(url, body) {
- const res = await fetch(url, {
- method: 'POST',
- headers: { 'Content-Type': 'application/json' },
- body: JSON.stringify(body),
- credentials: 'include'
+ // render availability table (Type, Size, Count, GlobalPrice + save price)
+ async function renderAvailabilityTable(){ const container=document.getElementById('availabilityContainer'); container.innerHTML='Ładowanie...'; const items = await getAvailability(); buildAvailabilityMap(items); if(!items||!items.length){ container.innerHTML='<div>Brak dostępnych pozycji.</div>'; return; }
+ // sort items alphabetically by Type then Size (Polish locale, case-insensitive)
+ items.sort((a,b)=>{
+ const ta = String(a.Type||'').trim();
+ const tb = String(b.Type||'').trim();
+ const cmpType = ta.localeCompare(tb,'pl',{sensitivity:'base'});
+ if (cmpType !==0) return cmpType;
+ const sa = String(a.Size||'').trim();
+ const sb = String(b.Size||'').trim();
+ return sa.localeCompare(sb,'pl',{sensitivity:'base'});
  });
-
- let text = await res.text();
- try { text = JSON.parse(text); } catch { }
-
- if (!res.ok)
- throw (typeof text === 'string' ? new Error(text) : new Error(JSON.stringify(text)));
-
- return text;
+ const table=document.createElement('table'); table.className='avail-table'; const thead=document.createElement('thead'); thead.innerHTML='<tr><th>Typ</th><th>Rozmiar</th><th>Ilość</th><th>Cena globalna</th></tr>'; table.appendChild(thead); const tbody=document.createElement('tbody'); items.forEach(row=>{ const tr=document.createElement('tr'); const td1=document.createElement('td'); td1.textContent=row.Type||''; const td2=document.createElement('td'); td2.textContent=row.Size||''; const td3=document.createElement('td'); td3.textContent=(row.Count||0).toString(); const td4=document.createElement('td'); const priceInput=document.createElement('input'); priceInput.type='number'; priceInput.step='0.01'; priceInput.min='0'; priceInput.className='price-input'; priceInput.value=(row.UnitPrice!=null?Number(row.UnitPrice).toFixed(2):''); const saveBtn=document.createElement('button'); saveBtn.className='winter-button small'; saveBtn.textContent='Zapisz cenę'; saveBtn.onclick=async()=>{ const val=parseFloat(priceInput.value); if(!Number.isFinite(val)){ alert('Podaj poprawną cenę'); return; } await postJson(`${apiBase}/api/equipment/prices`,{Type:row.Type,Size:row.Size,Price:val}); renderAvailabilityTable(); }; td4.appendChild(priceInput); td4.appendChild(saveBtn); tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3); tr.appendChild(td4); tbody.appendChild(tr); }); table.appendChild(tbody); container.innerHTML=''; container.appendChild(table);
  }
 
- async function deleteJson(url, body) {
- const res = await fetch(url, {
- method: 'DELETE',
- headers: { 'Content-Type': 'application/json' },
- body: JSON.stringify(body),
- credentials: 'include'
+ // wire quick selects: when quickType changes, populate quickSize
+ document.getElementById('quickType').addEventListener('change',()=>{ const t=document.getElementById('quickType').value; const sizeSel=document.getElementById('quickSize'); sizeSel.innerHTML='<option value="">Wybierz rozmiar</option>'; availability.filter(x=>x.Type===t).map(x=>x.Size).filter((v,i,a)=>a.indexOf(v)===i).forEach(s=>{ const opt=document.createElement('option'); opt.value=s; opt.textContent=s; sizeSel.appendChild(opt); }); });
+
+ // quick add/remove handlers
+ document.getElementById('quickAddBtn').addEventListener('click', async()=>{ const t=document.getElementById('quickType').value; const s=document.getElementById('quickSize').value; const q=parseInt(document.getElementById('quickQty').value)||1; if(!t||!s){ alert('Wybierz typ i rozmiar'); return; } try{ await postJson(`${apiBase}/api/equipment/add`,{Type:t,Size:s,Quantity:q}); await renderAvailabilityTable(); alert('Dodano'); }catch(e){ alert('Błąd'); } });
+ document.getElementById('quickRemBtn').addEventListener('click', async()=>{ const t=document.getElementById('quickType').value; const s=document.getElementById('quickSize').value; const q=parseInt(document.getElementById('quickQty').value)||1; if(!t||!s){ alert('Wybierz typ i rozmiar'); return; } try{ await deleteJson(`${apiBase}/api/equipment/delete`,{Type:t,Size:s,Quantity:q}); await renderAvailabilityTable(); alert('Usunięto'); }catch(e){ alert('Błąd'); } });
+
+ // create panel handlers
+ document.getElementById('createAdd').addEventListener('click', async()=>{
+ const t=document.getElementById('type').value;
+ const s=document.getElementById('size').value;
+ const q=parseInt(document.getElementById('quantity').value)||1;
+ const priceEl = document.getElementById('price');
+ if (!priceEl || !priceEl.value) { alert('Podaj cenę przedmiotu'); return; }
+ const p = priceEl.value ? parseFloat(priceEl.value) : undefined;
+ let imageUrl=null;
+ const fileEl=document.getElementById('imageFile');
+ if(!fileEl || !fileEl.files || fileEl.files.length===0) { alert('Wybierz zdjęcie dla przedmiotu'); return; }
+ if(fileEl && fileEl.files && fileEl.files.length>0){ const fd=new FormData(); fd.append('file', fileEl.files[0]); try { const r=await fetch(`${apiBase}/api/equipment/upload`,{method:'POST',body:fd,credentials:'include'}); if(!r.ok) { const txt = await r.text(); alert('Upload failed: ' + txt); return; } const jr=await r.json(); imageUrl=jr.Url; } catch(ex){ alert('Błąd uploadu pliku'); return; } }
+ try{
+ await postJson(`${apiBase}/api/equipment/add`,{Type:t,Size:s,Quantity:q,Price:p,ImageUrl:imageUrl});
+ await renderAvailabilityTable();
+ alert('Dodano');
+ }catch(e){ alert('Błąd'); }
  });
+ document.getElementById('createCancel').addEventListener('click',()=>{ hideAllPanels(); });
 
- let text = await res.text();
- try { text = JSON.parse(text); } catch { }
+ // add size panel handler
+ document.getElementById('addSizeBtn').addEventListener('click', async()=>{ const t=document.getElementById('existingTypeSelect').value; const s=document.getElementById('newSize').value; const q=parseInt(document.getElementById('newQty').value)||1; if(!t||!s){ alert('Wybierz typ i podaj rozmiar'); return; } const pEl = document.getElementById('newPrice'); const p = pEl && pEl.value ? parseFloat(pEl.value) : undefined; if (!t || !s) { alert('Wybierz typ i podaj rozmiar'); return; } try { await postJson(`${apiBase}/api/equipment/add`, { Type: t, Size: s, Quantity: q, Price: p }); await renderAvailabilityTable(); alert('Dodano rozmiar'); } catch (e) { alert('Błąd'); } });
+ document.getElementById('addSizeCancel').addEventListener('click',()=>{ hideAllPanels(); });
 
- if (!res.ok)
- throw (typeof text === 'string' ? new Error(text) : new Error(JSON.stringify(text)));
+ // init
+ await renderAvailabilityTable(); hideAllPanels();
+})();
 
- return text;
- }
-
- function extractErrorMessage(err) {
- if (!err) return 'Nieznany błąd.';
- let obj = null;
- if (typeof err === 'object') obj = err;
- else {
- try { obj = JSON.parse(typeof err === 'string' ? err : JSON.stringify(err)); } catch { obj = null; }
- }
- if (obj && (obj.errors || obj.Errors)) {
- const errors = obj.errors || obj.Errors;
- const keys = Object.keys(errors || {});
- const keyString = keys.join(' ').toLowerCase();
- if (keyString.includes('type') || keyString.includes('size') || keyString.includes('dto') || keyString.includes('$.type') || keyString.includes('$.size')) {
- return 'Wybierz poprawny typ i rozmiar.';
- }
- const msgs = [];
- for (const k of Object.keys(errors)) {
- const val = errors[k];
- if (Array.isArray(val)) msgs.push(...val);
- else if (typeof val === 'string') msgs.push(val);
- }
- if (msgs.length) return msgs.join('; ');
- }
- if (obj && (obj.Message || obj.message || obj.title)) return (obj.Message || obj.message || obj.title).toString();
- try { return JSON.stringify(err); } catch { return String(err); }
- }
-
- async function getMe() {
- if (window.__rent && typeof window.__rent.getMe === 'function') {
- try { return await window.__rent.getMe(); } catch { /* fallback */ }
- }
- try {
- let res = await fetch(`${apiBase}/api/Auth/me`, { credentials: 'include' });
- if (!res.ok) res = await fetch('/api/users/me', { credentials: 'include' });
- if (!res.ok) return null;
- try { return await res.json(); } catch { return null; }
- } catch { return null; }
- }
-
- async function getAvailability() {
- try {
- const res = await fetch(`${apiBase}/api/equipment/availability`, { credentials: 'include' });
- if (!res.ok) return [];
- return await res.json();
- } catch { return []; }
- }
-
- let availabilityByType = {}; // { type: { size: count } }
- function buildAvailabilityMap(items) {
- availabilityByType = {};
- items.forEach(x => {
- const t = String(x.Type || '').trim();
- const s = String(x.Size || '').trim();
- const c = parseInt(x.Count ||0) ||0;
- if (!t || !s) return;
- if (!availabilityByType[t]) availabilityByType[t] = {};
- availabilityByType[t][s] = c;
- });
- }
-
- const sizeMap = {
- Skis: ['Small', 'Medium', 'Large'],
- Snowboard: ['Small', 'Medium', 'Large'],
- Poles: ['Small', 'Medium', 'Large'],
- Helmet: ['Small', 'Medium', 'Large'],
- Gloves: ['Small', 'Medium', 'Large'],
- Goggles: ['Universal']
- };
-
- function tSize(sz) {
- const m = { Small: 'Mały', Medium: 'Średni', Large: 'Duży', Universal: 'Uniwersalny' };
- return m[sz] || sz;
- }
-
- function makeOption(value, available) {
- const opt = document.createElement('option');
- opt.value = value;
- // include available count in visible text
- opt.textContent = `${tSize(value)}${(typeof available === 'number') ? ` (dostępne: ${available})` : ''}`;
- if (typeof available === 'number') opt.dataset.available = available;
- return opt;
- }
-
- function populateSizesForType(type) {
- const sizeSelect = document.getElementById('size');
- sizeSelect.innerHTML = '';
-
- // If we have availability data use it, otherwise fall back to the static size map
- const sizes = availabilityByType[type] ? Object.keys(availabilityByType[type]) : (sizeMap[type] || ['Small', 'Medium', 'Large']);
- if (!sizes || sizes.length ===0) {
- sizeSelect.appendChild(new Option('Brak dostępnych rozmiarów', ''));
- sizeSelect.disabled = true;
- document.getElementById('sizeAvailable').textContent = '';
- return;
- }
- sizes.forEach(sz => {
- const avail = (availabilityByType[type] && availabilityByType[type][sz] != null) ? availabilityByType[type][sz] : undefined;
- sizeSelect.appendChild(makeOption(sz, avail));
- });
- sizeSelect.disabled = false;
- sizeSelect.classList.remove('selected');
- // select first and trigger change to update availability display
- sizeSelect.selectedIndex =0;
- onSizeChanged();
- }
-
- function onSizeChanged() {
- const sizeSelect = document.getElementById('size');
- const opt = sizeSelect.selectedOptions[0];
- const availSpan = document.getElementById('sizeAvailable');
- const qtyEl = document.getElementById('quantity');
- if (!opt) { availSpan.textContent = ''; qtyEl.min =1; return; }
- const available = parseInt(opt.dataset.available);
- if (Number.isFinite(available)) {
- availSpan.textContent = `Dostępne: ${available}`;
- qtyEl.max = Math.max(1, available);
- if (parseInt(qtyEl.value) > available) qtyEl.value = available >0 ? available :1;
- } else {
- availSpan.textContent = '';
- qtyEl.removeAttribute('max');
- }
- }
-
- async function ensureRoles() {
- const me = await getMe();
- const guard = document.getElementById('roleGuard');
- const form = document.getElementById('addItemForm');
- const roles = (me && (Array.isArray(me.Roles) || Array.isArray(me.roles))) ? (me.Roles || me.roles) : [];
- const rolesLower = roles.map(r => String(r).toLowerCase());
- const hasAccess = rolesLower.includes('admin') || rolesLower.includes('worker');
- if (!hasAccess) { if (guard) guard.style.display = 'block'; if (form) form.style.display = 'none'; document.getElementById('addPanel').classList.add('disabled'); } else { if (guard) guard.style.display = 'none'; if (form) form.style.display = 'block'; document.getElementById('addPanel').classList.remove('disabled'); }
- }
-
- document.getElementById('type').addEventListener('change', e => { const type = e.target.value; populateSizesForType(type); });
- document.getElementById('size').addEventListener('change', onSizeChanged);
-
- document.getElementById('btnDelete').addEventListener('click', async () => {
- const msg = document.getElementById('msg');
- msg.className = 'msg';
- msg.textContent = 'Usuwanie...';
- try {
- const dto = toDto();
- if (!dto.Type || !dto.Size) throw new Error('Wybierz typ i rozmiar');
- const sizeSelect = document.getElementById('size');
- const opt = sizeSelect.selectedOptions[0];
- const available = opt ? parseInt(opt.dataset.available) : NaN;
- const qty = parseInt(document.getElementById('quantity').value) ||1;
- if (Number.isFinite(available) && available <=0) { throw new Error('Brak dostępnych przedmiotów do usunięcia.'); }
- if (Number.isFinite(available) && qty > available) { throw new Error(`Nie można usunąć więcej niż dostępne: ${available}`); }
- const result = await deleteJson(`${apiBase}/api/equipment/delete`, dto);
- msg.className = 'msg success';
- msg.textContent = `🗑️ Usunięto: ${dto.Type} ${dto.Size}. Usunięto: ${result.Deleted ??0} Pozostało: ${result.Remaining ?? ''}`;
- const items = await getAvailability();
- buildAvailabilityMap(items);
- // reset selects to default after delete
- document.getElementById('type').selectedIndex =0;
- document.getElementById('size').disabled = true;
- document.getElementById('size').innerHTML = '<option value="">Najpierw wybierz typ</option>';
- document.getElementById('quantity').value = '1';
- } catch (err) {
- msg.className = 'msg error';
- msg.textContent = '❌ Błąd usuwania: ' + (err.message || err);
- }
- });
-
- async function handleAdd() {
- const msg = document.getElementById('msg');
- msg.className = 'msg';
- msg.textContent = 'Dodawanie...';
- try {
- const dto = toDto();
- const result = await postJson(`${apiBase}/api/equipment/add`, dto);
- msg.className = 'msg success';
- msg.textContent = `✅ Dodano: ${result.Type ?? dto.Type} ${result.Size ?? dto.Size}. Ilość: ${result.Quantity ?? dto.Quantity}`;
- // reset form so type/size selection appears fresh
- document.getElementById('type').selectedIndex =0;
- document.getElementById('size').disabled = true;
- document.getElementById('size').innerHTML = '<option value="">Najpierw wybierz typ</option>';
- document.getElementById('quantity').value = '1';
- const items = await getAvailability();
- buildAvailabilityMap(items);
- } catch (err) {
- msg.className = 'msg error';
- msg.textContent = '❌ Błąd: ' + (err.message || err);
- }
- }
-
- // wire add button to avoid form submit and full page reload
- const addBtnEl = document.getElementById('btnAdd');
- if (addBtnEl) addBtnEl.addEventListener('click', async (e) => { e.preventDefault(); await handleAdd(); });
-
- // Prevent native form submit (e.g., Enter) from reloading the page
- const formEl = document.getElementById('addItemForm');
- if (formEl) formEl.addEventListener('submit', (e) => { e.preventDefault(); });
-
- (async function init(){
- await ensureRoles();
- const items = await getAvailability();
- buildAvailabilityMap(items);
- })();
- })();
  </script>
 }

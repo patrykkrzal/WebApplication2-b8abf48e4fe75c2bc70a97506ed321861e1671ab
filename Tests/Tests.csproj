@@ -10,7 +10,9 @@
  <PackageReference Include="NUnit3TestAdapter" Version="4.5.0" />
  <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.0" />
  <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.0" />
- <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.0" />
+ <!-- align caching package to transitive dependency (>=9.0.4) to avoid NU1605 downgrade errors -->
+ <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.4" />
+ <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.0" />
  </ItemGroup>
  <ItemGroup>
  <ProjectReference Include="..\WebApplication2\Rent.csproj" />

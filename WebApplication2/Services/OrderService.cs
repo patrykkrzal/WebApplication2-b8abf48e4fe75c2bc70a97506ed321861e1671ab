@@ -7,29 +7,34 @@ using Rent.Interfaces;
 using Rent.DTO;
 using Rent.Models;
 using Rent.Data;
+using Rent.Services;
 
 namespace Rent.Services
 {
  public class OrderService : IOrderService
  {
  private readonly DataContext? _db;
- private readonly OrderSqlService? _sql;
+ private readonly Rent.Interfaces.IOrderSqlService? _sql;
+ private readonly Rent.Interfaces.IEquipmentStateService? _equipmentState;
  private readonly ILogger<OrderService>? _logger;
+ private readonly Rent.Interfaces.IPriceResolver? _priceResolver;
 
- // Parameterless constructor left for unit tests that use new OrderService()
+ // ctor (tests)
  public OrderService()
  {
  }
 
- // DI constructor used by the application
- public OrderService(DataContext db, OrderSqlService sql, ILogger<OrderService> logger)
+ // ctor (di)
+ public OrderService(DataContext db, Rent.Interfaces.IOrderSqlService sql, Rent.Interfaces.IEquipmentStateService equipmentState, ILogger<OrderService> logger, Rent.Interfaces.IPriceResolver priceResolver)
  {
  _db = db;
  _sql = sql;
+ _equipmentState = equipmentState;
  _logger = logger;
+ _priceResolver = priceResolver;
  }
 
- // Existing synchronous method used by tests via IOrderService
+ // create order (sync)
  public Order CreateOrder(CreateOrderDto dto, string userId)
  {
  return new Order
@@ -45,7 +50,7 @@ namespace Rent.Services
  };
  }
 
- // New async creation used by OrdersController when DI is available
+ // create order (async)
  public async Task<(Order?, decimal)> CreateOrderAsync(CreateOrderDto dto, string userId)
  {
  // If DI services not available, fall back to simple in-memory behavior
@@ -55,16 +60,18 @@ namespace Rent.Services
  return (o, o.Price);
  }
 
- // Ensure counts
+ // ensure counts
  if (dto.Days <=0) dto.Days =1;
  if (dto.BasePrice <0) dto.BasePrice =0;
  if (dto.ItemsCount <=0) dto.ItemsCount = System.Math.Max(0, dto.ItemsDetail?.Sum(i => i.Quantity) ??0);
 
- // create order via stored procedure
- var rentedItems = (dto.Items?.Length ??0) >0 ? string.Join(", ", dto.Items) : "Basket";
+ // create via sp
+ var rentedItems = (dto.Items != null && dto.Items.Length >0)
+ ? string.Join(", ", dto.Items)
+ : "Basket";
  await _sql.ExecuteCreateOrderAsync(userId, rentedItems, dto.BasePrice, dto.ItemsCount, dto.Days);
 
- // load created order
+ // load order
  var order = await _db.Orders.Where(o => o.UserId == userId).OrderByDescending(o => o.Id).FirstOrDefaultAsync();
  if (order == null)
  {
@@ -79,15 +86,16 @@ namespace Rent.Services
  order.Was_It_Returned = false;
  if ((order.Days ??0) <=0) order.Days = dto.Days;
 
- // assign equipment (do not reserve)
+ // assign equipment
  foreach (var d in dto.ItemsDetail ?? new List<ItemDetailDto>())
  {
  if (d.Quantity <=0) continue;
- if (!System.Enum.TryParse<Enums.EquipmentType>(d.Type?.Trim() ?? "", true, out var type)) continue;
- if (!System.Enum.TryParse<Enums.Size>(d.Size?.Trim() ?? "", true, out var size)) continue;
+ var typeStr = (d.Type ?? "").Trim();
+ var sizeStr = (d.Size ?? "").Trim();
+ if (string.IsNullOrEmpty(typeStr) || string.IsNullOrEmpty(sizeStr)) continue;
 
  var candidates = await _db.Equipment
- .Where(e => e.Is_In_Werehouse && !e.Is_Reserved && e.Type == type && e.Size == size)
+ .Where(e => e.Is_In_Werehouse && !e.Is_Reserved && e.Type.ToLower() == typeStr.ToLower() && e.Size.ToLower() == sizeStr.ToLower())
  .OrderBy(e => e.Id)
  .ToListAsync();
 
@@ -117,7 +125,7 @@ namespace Rent.Services
  OrderId = order.Id,
  EquipmentId = eq.Id,
  Quantity =1,
- PriceWhenOrdered = eq.Price
+ PriceWhenOrdered = (eq.Price ?? (_priceResolver != null ? _priceResolver.ResolvePrice(eq.Type, eq.Size) :0m))
  });
  }
  }
@@ -139,6 +147,77 @@ namespace Rent.Services
  order.Id, total, order.BasePrice, order.ItemsCount, order.Days);
 
  return (order, total);
+ }
+
+ // accept order
+ public async Task<(bool Success, System.Collections.Generic.List<int> Reserved, System.DateTime? DueDate, string? Error)> AcceptAsync(int id)
+ {
+ if (_db == null) return (false, new System.Collections.Generic.List<int>(), null, "DB not available");
+ var ord = await _db.Orders.Full().FirstOrDefaultAsync(o => o.Id == id);
+ if (ord == null) return (false, new System.Collections.Generic.List<int>(), null, "Order not found");
+ if (ord.DueDate != null) return (false, new System.Collections.Generic.List<int>(), null, "Order already accepted");
+ if ((ord.Days ??0) <=0) ord.Days =7;
+ ord.OrderDate = System.DateTime.UtcNow;
+ ord.Was_It_Returned = false;
+
+ var reserved = new System.Collections.Generic.List<int>();
+ foreach (var oi in ord.OrderedItems ?? System.Linq.Enumerable.Empty<OrderedItem>())
+ {
+ if (oi.Equipment != null)
+ {
+ _equipmentState?.Reserve(oi);
+ reserved.Add(oi.Equipment.Id);
+ }
+ else if (oi.EquipmentId !=0)
+ {
+ var eq = await _db.Equipment.FindAsync(oi.EquipmentId);
+ if (eq != null)
+ {
+ eq.Is_In_Werehouse = false;
+ eq.Is_Reserved = true;
+ reserved.Add(eq.Id);
+ }
+ }
+ }
+
+ await _db.SaveChangesAsync();
+ var refreshed = await _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
+ return (true, reserved, refreshed?.DueDate, null);
+ }
+
+ // return order
+ public async Task<(bool Success, System.Collections.Generic.List<int> Restored, string? Error)> ReturnAsync(int id)
+ {
+ if (_db == null) return (false, new System.Collections.Generic.List<int>(), "DB not available");
+ var ord = await _db.Orders.Full().FirstOrDefaultAsync(o => o.Id == id);
+ if (ord == null) return (false, new System.Collections.Generic.List<int>(), "Order not found");
+ if (ord.Was_It_Returned) return (false, new System.Collections.Generic.List<int>(), "Order already returned");
+
+ ord.Was_It_Returned = true;
+ ord.DueDate = null;
+
+ var restored = new System.Collections.Generic.List<int>();
+ foreach (var oi in ord.OrderedItems ?? System.Linq.Enumerable.Empty<OrderedItem>())
+ {
+ if (oi.Equipment != null)
+ {
+ _equipmentState?.Restore(oi);
+ restored.Add(oi.Equipment.Id);
+ }
+ else if (oi.EquipmentId !=0)
+ {
+ var eq = await _db.Equipment.FindAsync(oi.EquipmentId);
+ if (eq != null)
+ {
+ eq.Is_In_Werehouse = true;
+ eq.Is_Reserved = false;
+ restored.Add(eq.Id);
+ }
+ }
+ }
+
+ await _db.SaveChangesAsync();
+ return (true, restored, null);
  }
  }
 }

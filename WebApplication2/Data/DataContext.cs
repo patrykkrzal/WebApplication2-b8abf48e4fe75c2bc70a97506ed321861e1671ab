@@ -16,7 +16,8 @@ namespace Rent.Data
         public DbSet<Order> Orders { get; set; }
         public DbSet<RentalInfo> RentalInfo { get; set; }
         public DbSet<OrderedItem> OrderedItems { get; set; }
-        public DbSet<OrderLog> OrderLogs { get; set; }
+        // OrderLogs managed at DB level; expose DTO mapping for raw SQL queries
+        public DbSet<Rent.DTO.OrderLogDto> OrderLogDtos { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -34,6 +35,13 @@ namespace Rent.Data
                 .WithMany(e => e.OrderedItems)
                 .HasForeignKey(eo => eo.EquipmentId);
 
+            // configure optional relationship Equipment -> EquipmentPrice
+            modelBuilder.Entity<Equipment>()
+                .HasOne(e => e.EquipmentPrice)
+                .WithMany(p => p.Equipments)
+                .HasForeignKey(e => e.EquipmentPriceId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             modelBuilder.Entity<OrderedItem>()
                 .HasOne(eo => eo.Order)
                 .WithMany(o => o.OrderedItems)
@@ -47,16 +55,10 @@ namespace Rent.Data
             modelBuilder.Entity<OrderedItem>().Property(oi => oi.PriceWhenOrdered).HasPrecision(18, 2);
 
 
-            modelBuilder.Entity<OrderLog>(eb =>
-            {
-                eb.ToTable("OrderLogs");
-                eb.HasKey(l => l.Id);
-                eb.Property(l => l.Message).HasMaxLength(4000).IsRequired();
-                eb.Property(l => l.LogDate).HasDefaultValueSql("SYSUTCDATETIME()");
-            });
+            // order logs
 
             modelBuilder
-                .HasDbFunction(typeof(DataContext).GetMethod(nameof(FnOrderDiscount), new[] { typeof(int), typeof(int) }))
+                .HasDbFunction(typeof(DataContext).GetMethod(nameof(FnOrderDiscount), new[] { typeof(int), typeof(int) })!)
                 .HasName("fnOrderDiscount")
                 .HasSchema("dbo");
         }
@@ -68,6 +70,40 @@ namespace Rent.Data
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
